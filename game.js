@@ -26,7 +26,7 @@ class Game {
                 e.preventDefault();
             }
             
-            if ((this.gameState === 'gameOver' || this.gameState === 'menu') && e.key.toLowerCase() === 'r') {
+            if ((this.gameState === 'gameOver' || this.gameState === 'menu' || this.gameState === 'victory') && e.key.toLowerCase() === 'r') {
                 if (this.gameState === 'menu') {
                     this.startGame();
                 } else {
@@ -49,20 +49,39 @@ class Game {
     generateRoom() {
         this.monsters = [];
         
-        const monsterCount = Math.floor(Math.random() * 3) + 2 + Math.floor(this.currentRoom / 3);
+        // Progressive difficulty - more monsters and stronger types as rooms increase
+        const baseMonsterCount = 2;
+        const roomMultiplier = Math.floor((this.currentRoom - 1) / 3); // Every 3 rooms add +1 monster
+        const randomVariation = Math.floor(Math.random() * 2); // 0-1 random monsters
+        const monsterCount = Math.min(baseMonsterCount + roomMultiplier + randomVariation, 8); // Cap at 8 monsters
         
         for (let i = 0; i < monsterCount; i++) {
             const x = Math.random() * (this.canvas.width - 60) + 30;
             const y = Math.random() * (this.canvas.height - 60) + 30;
             
             if (Math.abs(x - this.player.x) > 100 || Math.abs(y - this.player.y) > 100) {
-                const monsterTypes = ['goblin', 'orc', 'skeleton', 'troll'];
+                // Progressive monster type selection based on room
+                let monsterTypes;
+                if (this.currentRoom <= 3) {
+                    monsterTypes = ['goblin', 'goblin', 'orc']; // Early rooms: mostly goblins
+                } else if (this.currentRoom <= 7) {
+                    monsterTypes = ['goblin', 'orc', 'orc', 'skeleton']; // Mid rooms: more orcs
+                } else if (this.currentRoom <= 12) {
+                    monsterTypes = ['orc', 'skeleton', 'skeleton', 'troll']; // Late rooms: stronger enemies
+                } else {
+                    monsterTypes = ['skeleton', 'troll', 'troll', 'troll']; // Final rooms: mostly trolls
+                }
+                
                 const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
                 this.monsters.push(new Monster(x, y, type, this.currentRoom));
             }
         }
         
-        this.addMessage(`Entered room ${this.currentRoom}. ${this.monsters.length} monsters await!`);
+        if (this.currentRoom === 15) {
+            this.addMessage(`FINAL ROOM ${this.currentRoom}! Defeat all enemies to win!`);
+        } else {
+            this.addMessage(`Room ${this.currentRoom}/15 - ${this.monsters.length} monsters await!`);
+        }
     }
     
     nextRoom() {
@@ -114,7 +133,13 @@ class Game {
         // Check if player walks into entrance when room is clear
         if (this.monsters.length === 0 && this.player.y > this.canvas.height - 60 && 
             this.player.x > this.canvas.width / 2 - 50 && this.player.x < this.canvas.width / 2 + 30) {
-            this.nextRoom();
+            if (this.currentRoom >= 15) {
+                this.gameState = 'victory';
+                this.addMessage('VICTORY! You have conquered all 15 rooms!');
+                soundManager.victory();
+            } else {
+                this.nextRoom();
+            }
         }
         
         if (this.player.health <= 0) {
@@ -138,20 +163,39 @@ class Game {
         
         // Draw entrance at bottom when room is clear
         if (this.monsters.length === 0 && this.gameState === 'playing') {
-            this.ctx.fillStyle = '#2ecc71';
-            this.ctx.fillRect(this.canvas.width / 2 - 50, this.canvas.height - 40, 100, 40);
-            
-            this.ctx.fillStyle = '#1a1a1a';
-            this.ctx.fillRect(this.canvas.width / 2 - 45, this.canvas.height - 35, 90, 30);
-            
-            this.ctx.fillStyle = '#f39c12';
-            this.ctx.font = '14px Courier New';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText('NEXT ROOM', this.canvas.width / 2, this.canvas.height - 18);
-            
-            this.ctx.fillStyle = '#27ae60';
-            this.ctx.font = '12px Courier New';
-            this.ctx.fillText('Walk into entrance', this.canvas.width / 2, this.canvas.height - 50);
+            if (this.currentRoom >= 15) {
+                // Victory entrance
+                this.ctx.fillStyle = '#FFD700';
+                this.ctx.fillRect(this.canvas.width / 2 - 50, this.canvas.height - 40, 100, 40);
+                
+                this.ctx.fillStyle = '#1a1a1a';
+                this.ctx.fillRect(this.canvas.width / 2 - 45, this.canvas.height - 35, 90, 30);
+                
+                this.ctx.fillStyle = '#FFD700';
+                this.ctx.font = '14px Courier New';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText('VICTORY!', this.canvas.width / 2, this.canvas.height - 18);
+                
+                this.ctx.fillStyle = '#FFD700';
+                this.ctx.font = '12px Courier New';
+                this.ctx.fillText('Walk into golden portal', this.canvas.width / 2, this.canvas.height - 50);
+            } else {
+                // Regular room entrance
+                this.ctx.fillStyle = '#2ecc71';
+                this.ctx.fillRect(this.canvas.width / 2 - 50, this.canvas.height - 40, 100, 40);
+                
+                this.ctx.fillStyle = '#1a1a1a';
+                this.ctx.fillRect(this.canvas.width / 2 - 45, this.canvas.height - 35, 90, 30);
+                
+                this.ctx.fillStyle = '#f39c12';
+                this.ctx.font = '14px Courier New';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText('NEXT ROOM', this.canvas.width / 2, this.canvas.height - 18);
+                
+                this.ctx.fillStyle = '#27ae60';
+                this.ctx.font = '12px Courier New';
+                this.ctx.fillText('Walk into entrance', this.canvas.width / 2, this.canvas.height - 50);
+            }
         }
         
         // Draw main menu screen
@@ -184,6 +228,38 @@ class Game {
             this.ctx.fillText('Defeat monsters, advance through rooms, become legendary!', this.canvas.width / 2, this.canvas.height / 2 + 50);
         }
         
+        // Draw victory screen
+        if (this.gameState === 'victory') {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            // Animated victory effects
+            const time = Date.now() * 0.005;
+            const sparkle1 = 0.7 + 0.3 * Math.sin(time);
+            const sparkle2 = 0.7 + 0.3 * Math.sin(time + 2);
+            
+            this.ctx.fillStyle = `rgba(255, 215, 0, ${sparkle1})`;
+            this.ctx.font = '52px Courier New';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('VICTORY!', this.canvas.width / 2, this.canvas.height / 2 - 80);
+            
+            this.ctx.fillStyle = '#2ecc71';
+            this.ctx.font = '28px Courier New';
+            this.ctx.fillText('Dungeon Conquered!', this.canvas.width / 2, this.canvas.height / 2 - 30);
+            
+            this.ctx.fillStyle = '#3498db';
+            this.ctx.font = '20px Courier New';
+            this.ctx.fillText('You defeated all 15 rooms!', this.canvas.width / 2, this.canvas.height / 2 + 10);
+            
+            this.ctx.fillStyle = `rgba(231, 76, 60, ${sparkle2})`;
+            this.ctx.font = '18px Courier New';
+            this.ctx.fillText('You are a true dungeon master!', this.canvas.width / 2, this.canvas.height / 2 + 40);
+            
+            this.ctx.fillStyle = '#f39c12';
+            this.ctx.font = '16px Courier New';
+            this.ctx.fillText('Press R to play again', this.canvas.width / 2, this.canvas.height / 2 + 80);
+        }
+        
         // Draw game over screen
         if (this.gameState === 'gameOver') {
             this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
@@ -196,7 +272,7 @@ class Game {
             
             this.ctx.fillStyle = '#ffffff';
             this.ctx.font = '24px Courier New';
-            this.ctx.fillText(`You reached room ${this.currentRoom}`, this.canvas.width / 2, this.canvas.height / 2 - 10);
+            this.ctx.fillText(`You reached room ${this.currentRoom}/15`, this.canvas.width / 2, this.canvas.height / 2 - 10);
             
             this.ctx.fillStyle = '#f39c12';
             this.ctx.font = '20px Courier New';
@@ -870,6 +946,29 @@ class SoundManager {
     footstep() {
         // Subtle step sound
         this.playTone(80 + Math.random() * 20, 0.05, 'triangle', 0.1);
+    }
+    
+    victory() {
+        // Epic victory fanfare
+        const victoryNotes = [523, 659, 784, 1047]; // C, E, G, C octave
+        victoryNotes.forEach((freq, i) => {
+            setTimeout(() => this.playTone(freq, 0.5, 'triangle', 0.4), i * 200);
+        });
+        
+        // Additional harmony notes
+        setTimeout(() => {
+            const harmonyNotes = [392, 494, 659]; // G, B, E
+            harmonyNotes.forEach((freq, i) => {
+                setTimeout(() => this.playTone(freq, 0.8, 'sine', 0.3), i * 150);
+            });
+        }, 400);
+        
+        // Final triumphant chord
+        setTimeout(() => {
+            this.playTone(523, 1.0, 'triangle', 0.4); // C
+            this.playTone(659, 1.0, 'triangle', 0.3); // E  
+            this.playTone(784, 1.0, 'triangle', 0.3); // G
+        }, 1200);
     }
 }
 
