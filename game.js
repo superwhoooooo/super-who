@@ -519,6 +519,41 @@ class Player {
         ctx.fillRect(centerX - 4, centerY, 8, 1);
     }
     
+    renderWeapon(ctx, centerX, centerY) {
+        const weaponOffsetX = 8; // Position weapon to the right of player
+        const weaponOffsetY = 2; // Slightly below center
+        
+        if (this.currentWeapon === 'gun') {
+            // Draw pistol
+            ctx.fillStyle = '#444444'; // Dark gray for gun body
+            ctx.fillRect(centerX + weaponOffsetX, centerY + weaponOffsetY, 6, 3);
+            
+            // Gun barrel
+            ctx.fillStyle = '#222222'; // Darker for barrel
+            ctx.fillRect(centerX + weaponOffsetX + 6, centerY + weaponOffsetY + 1, 3, 1);
+            
+            // Gun grip
+            ctx.fillStyle = '#8B4513'; // Brown grip
+            ctx.fillRect(centerX + weaponOffsetX + 1, centerY + weaponOffsetY + 3, 2, 3);
+        } else {
+            // Draw sword
+            ctx.fillStyle = '#C0C0C0'; // Silver blade
+            ctx.fillRect(centerX + weaponOffsetX, centerY + weaponOffsetY - 2, 1, 8);
+            
+            // Sword crossguard
+            ctx.fillStyle = '#8B4513'; // Brown crossguard
+            ctx.fillRect(centerX + weaponOffsetX - 1, centerY + weaponOffsetY + 3, 3, 1);
+            
+            // Sword handle
+            ctx.fillStyle = '#654321'; // Dark brown handle
+            ctx.fillRect(centerX + weaponOffsetX, centerY + weaponOffsetY + 4, 1, 3);
+            
+            // Sword pommel
+            ctx.fillStyle = '#8B4513'; // Brown pommel
+            ctx.fillRect(centerX + weaponOffsetX, centerY + weaponOffsetY + 7, 1, 1);
+        }
+    }
+    
     render(ctx) {
         ctx.fillStyle = this.invulnerable > 0 ? '#ffff99' : '#ffff00';
         ctx.fillRect(this.x, this.y, this.width, this.height);
@@ -532,6 +567,9 @@ class Player {
         ctx.font = '10px Courier New';
         ctx.textAlign = 'center';
         ctx.fillText('?', centerX, centerY + 8);
+        
+        // Draw weapon in hand
+        this.renderWeapon(ctx, centerX, centerY);
         
         if (this.attackCooldown > 15) {
             ctx.strokeStyle = '#ffffff';
