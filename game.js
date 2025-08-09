@@ -17,7 +17,7 @@ class Game {
     
     setupEventListeners() {
         document.addEventListener('keydown', (e) => {
-            this.keys[e.key.toLowerCase()] = true;
+            this.keys[e.key] = true;
             
             if (e.key === ' ') {
                 e.preventDefault();
@@ -30,7 +30,7 @@ class Game {
         });
         
         document.addEventListener('keyup', (e) => {
-            this.keys[e.key.toLowerCase()] = false;
+            this.keys[e.key] = false;
         });
     }
     
@@ -148,10 +148,10 @@ class Player {
     }
     
     update(keys, canvas) {
-        if (keys['w'] && this.y > 0) this.y -= this.speed;
-        if (keys['s'] && this.y < canvas.height - this.height) this.y += this.speed;
-        if (keys['a'] && this.x > 0) this.x -= this.speed;
-        if (keys['d'] && this.x < canvas.width - this.width) this.x += this.speed;
+        if (keys['ArrowUp'] && this.y > 0) this.y -= this.speed;
+        if (keys['ArrowDown'] && this.y < canvas.height - this.height) this.y += this.speed;
+        if (keys['ArrowLeft'] && this.x > 0) this.x -= this.speed;
+        if (keys['ArrowRight'] && this.x < canvas.width - this.width) this.x += this.speed;
         
         if (this.attackCooldown > 0) this.attackCooldown--;
         if (this.invulnerable > 0) this.invulnerable--;
