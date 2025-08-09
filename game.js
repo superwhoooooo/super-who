@@ -3,6 +3,7 @@ class Game {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.player = new Player(300, 50);
+        this.currentLevel = 1;
         this.currentRoom = 1;
         this.monsters = [];
         this.bullets = [];
@@ -26,7 +27,7 @@ class Game {
                 e.preventDefault();
             }
             
-            if ((this.gameState === 'gameOver' || this.gameState === 'menu' || this.gameState === 'victory') && e.key.toLowerCase() === 'r') {
+            if ((this.gameState === 'gameOver' || this.gameState === 'menu') && e.key.toLowerCase() === 'r') {
                 if (this.gameState === 'menu') {
                     this.startGame();
                 } else {
@@ -50,10 +51,11 @@ class Game {
         this.monsters = [];
         
         // Progressive difficulty - more monsters and stronger types as rooms increase
-        const baseMonsterCount = 4; // Increased from 2 to 4
-        const roomMultiplier = Math.floor((this.currentRoom - 1) / 2); // Every 2 rooms add +1 monster (was every 3)
-        const randomVariation = Math.floor(Math.random() * 3) + 1; // 1-3 random monsters (was 0-1)
-        const monsterCount = Math.min(baseMonsterCount + roomMultiplier + randomVariation, 12); // Cap at 12 monsters (was 8)
+        const baseMonsterCount = 4 + (this.currentLevel - 1); // Base increases with level
+        const roomMultiplier = Math.floor((this.currentRoom - 1) / 2); // Every 2 rooms add +1 monster
+        const levelMultiplier = Math.floor((this.currentLevel - 1) / 2); // Every 2 levels add +1 monster
+        const randomVariation = Math.floor(Math.random() * 3) + 1; // 1-3 random monsters
+        const monsterCount = Math.min(baseMonsterCount + roomMultiplier + levelMultiplier + randomVariation, 15); // Cap increased to 15
         
         for (let i = 0; i < monsterCount; i++) {
             const x = Math.random() * (this.canvas.width - 60) + 30;
@@ -73,7 +75,7 @@ class Game {
                 }
                 
                 const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
-                this.monsters.push(new Monster(x, y, type, this.currentRoom));
+                this.monsters.push(new Monster(x, y, type, this.currentRoom + ((this.currentLevel - 1) * 15)));
             }
         }
         
@@ -87,11 +89,11 @@ class Game {
             // Spawn boss in center of room
             const bossX = this.canvas.width / 2 - 15;
             const bossY = this.canvas.height / 2 - 15;
-            this.monsters.push(new Boss(bossX, bossY, randomBossType, this.currentRoom));
+            this.monsters.push(new Boss(bossX, bossY, randomBossType, this.currentLevel));
             
-            this.addMessage(`FINAL ROOM! Face the mighty ${randomBossType}!`);
+            this.addMessage(`BOSS ROOM! Level ${this.currentLevel} ${randomBossType} awaits!`);
         } else {
-            this.addMessage(`Room ${this.currentRoom}/15 - ${this.monsters.length} monsters await!`);
+            this.addMessage(`L${this.currentLevel} Room ${this.currentRoom}/15 - ${this.monsters.length} monsters await!`);
         }
     }
     
@@ -100,8 +102,24 @@ class Game {
         this.player.heal(20);
         this.player.restoreMana(10);
         this.generateRoom();
-        document.getElementById('room').textContent = this.currentRoom;
+        this.updateRoomDisplay();
         soundManager.roomAdvance();
+    }
+    
+    nextLevel() {
+        this.currentLevel++;
+        this.currentRoom = 1;
+        this.player.heal(50); // More healing between levels
+        this.player.restoreMana(25);
+        this.player.levelUp(); // Bonus level up for completing a level
+        this.generateRoom();
+        this.updateRoomDisplay();
+        this.addMessage(`LEVEL ${this.currentLevel} BEGINS! You grow stronger!`);
+        soundManager.levelAdvance();
+    }
+    
+    updateRoomDisplay() {
+        document.getElementById('room').textContent = `L${this.currentLevel} R${this.currentRoom}`;
     }
     
     addMessage(text) {
@@ -151,9 +169,7 @@ class Game {
         if (this.monsters.length === 0 && this.player.y > this.canvas.height - 60 && 
             this.player.x > this.canvas.width / 2 - 50 && this.player.x < this.canvas.width / 2 + 30) {
             if (this.currentRoom >= 15) {
-                this.gameState = 'victory';
-                this.addMessage('VICTORY! You have conquered all 15 rooms!');
-                soundManager.victory();
+                this.nextLevel();
             } else {
                 this.nextRoom();
             }
@@ -181,21 +197,21 @@ class Game {
         // Draw entrance at bottom when room is clear
         if (this.monsters.length === 0 && this.gameState === 'playing') {
             if (this.currentRoom >= 15) {
-                // Victory entrance
-                this.ctx.fillStyle = '#FFD700';
+                // Level completion entrance
+                this.ctx.fillStyle = '#9932CC';
                 this.ctx.fillRect(this.canvas.width / 2 - 50, this.canvas.height - 40, 100, 40);
                 
                 this.ctx.fillStyle = '#1a1a1a';
                 this.ctx.fillRect(this.canvas.width / 2 - 45, this.canvas.height - 35, 90, 30);
                 
                 this.ctx.fillStyle = '#FFD700';
-                this.ctx.font = '14px Courier New';
-                this.ctx.textAlign = 'center';
-                this.ctx.fillText('VICTORY!', this.canvas.width / 2, this.canvas.height - 18);
-                
-                this.ctx.fillStyle = '#FFD700';
                 this.ctx.font = '12px Courier New';
-                this.ctx.fillText('Walk into golden portal', this.canvas.width / 2, this.canvas.height - 50);
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText(`LEVEL ${this.currentLevel + 1}`, this.canvas.width / 2, this.canvas.height - 18);
+                
+                this.ctx.fillStyle = '#9932CC';
+                this.ctx.font = '10px Courier New';
+                this.ctx.fillText('Enter portal to advance', this.canvas.width / 2, this.canvas.height - 50);
             } else {
                 // Regular room entrance
                 this.ctx.fillStyle = '#2ecc71';
@@ -245,37 +261,6 @@ class Game {
             this.ctx.fillText('Defeat monsters, advance through rooms, become legendary!', this.canvas.width / 2, this.canvas.height / 2 + 50);
         }
         
-        // Draw victory screen
-        if (this.gameState === 'victory') {
-            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
-            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-            
-            // Animated victory effects
-            const time = Date.now() * 0.005;
-            const sparkle1 = 0.7 + 0.3 * Math.sin(time);
-            const sparkle2 = 0.7 + 0.3 * Math.sin(time + 2);
-            
-            this.ctx.fillStyle = `rgba(255, 215, 0, ${sparkle1})`;
-            this.ctx.font = '52px Courier New';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText('VICTORY!', this.canvas.width / 2, this.canvas.height / 2 - 80);
-            
-            this.ctx.fillStyle = '#2ecc71';
-            this.ctx.font = '28px Courier New';
-            this.ctx.fillText('Dungeon Conquered!', this.canvas.width / 2, this.canvas.height / 2 - 30);
-            
-            this.ctx.fillStyle = '#3498db';
-            this.ctx.font = '20px Courier New';
-            this.ctx.fillText('You defeated all 15 rooms!', this.canvas.width / 2, this.canvas.height / 2 + 10);
-            
-            this.ctx.fillStyle = `rgba(231, 76, 60, ${sparkle2})`;
-            this.ctx.font = '18px Courier New';
-            this.ctx.fillText('You are a true dungeon master!', this.canvas.width / 2, this.canvas.height / 2 + 40);
-            
-            this.ctx.fillStyle = '#f39c12';
-            this.ctx.font = '16px Courier New';
-            this.ctx.fillText('Press R to play again', this.canvas.width / 2, this.canvas.height / 2 + 80);
-        }
         
         // Draw game over screen
         if (this.gameState === 'gameOver') {
@@ -289,7 +274,7 @@ class Game {
             
             this.ctx.fillStyle = '#ffffff';
             this.ctx.font = '24px Courier New';
-            this.ctx.fillText(`You reached room ${this.currentRoom}/15`, this.canvas.width / 2, this.canvas.height / 2 - 10);
+            this.ctx.fillText(`Level ${this.currentLevel}, Room ${this.currentRoom}/15`, this.canvas.width / 2, this.canvas.height / 2 - 10);
             
             this.ctx.fillStyle = '#f39c12';
             this.ctx.font = '20px Courier New';
@@ -299,6 +284,7 @@ class Game {
     
     startGame() {
         this.player = new Player(300, 50);
+        this.currentLevel = 1;
         this.currentRoom = 1;
         this.monsters = [];
         this.bullets = [];
@@ -306,7 +292,7 @@ class Game {
         this.messages = [];
         this.generateRoom();
         this.addMessage('Adventure begins!');
-        document.getElementById('room').textContent = this.currentRoom;
+        this.updateRoomDisplay();
         this.player.updateUI();
         this.player.updateWeaponUI();
         
@@ -316,6 +302,7 @@ class Game {
     
     restart() {
         this.player = new Player(300, 50);
+        this.currentLevel = 1;
         this.currentRoom = 1;
         this.monsters = [];
         this.bullets = [];
@@ -323,7 +310,7 @@ class Game {
         this.messages = [];
         this.generateRoom();
         this.addMessage('New game started!');
-        document.getElementById('room').textContent = this.currentRoom;
+        this.updateRoomDisplay();
         this.player.updateUI();
         this.player.updateWeaponUI();
     }
@@ -1339,6 +1326,22 @@ class SoundManager {
         setTimeout(() => this.playTone(150, 0.15, 'triangle', 0.3), 100);
         setTimeout(() => this.playTone(300, 0.2, 'square', 0.5), 200);
         setTimeout(() => this.playTone(100, 0.3, 'sine', 0.2), 350);
+    }
+    
+    levelAdvance() {
+        // Epic level completion fanfare
+        const levelNotes = [392, 523, 659, 784, 1047]; // G, C, E, G, C
+        levelNotes.forEach((freq, i) => {
+            setTimeout(() => this.playTone(freq, 0.4, 'triangle', 0.4), i * 150);
+        });
+        
+        // Triumphant ending chord
+        setTimeout(() => {
+            this.playTone(523, 0.8, 'triangle', 0.5); // C
+            this.playTone(659, 0.8, 'triangle', 0.4); // E
+            this.playTone(784, 0.8, 'triangle', 0.4); // G
+            this.playTone(1047, 0.8, 'triangle', 0.3); // C octave
+        }, 800);
     }
 }
 
