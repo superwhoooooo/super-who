@@ -777,7 +777,7 @@ class Monster {
         };
         
         const base = baseStats[type];
-        const multiplier = 1 + (roomLevel - 1) * 0.2; // Reduced from 0.3 to 0.2
+        const multiplier = 1 + (roomLevel - 1) * 0.05; // Significantly reduced scaling
         
         return {
             health: Math.floor(base.health * multiplier),
