@@ -358,9 +358,48 @@ class Player {
         document.getElementById('weaponDamage').textContent = `Damage: ${weapon.minDamage}-${weapon.maxDamage}`;
     }
     
+    renderFace(ctx) {
+        const centerX = this.x + this.width / 2;
+        const centerY = this.y + this.height / 2;
+        const isHurt = this.invulnerable > 0;
+        
+        // Eyes
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(centerX - 6, centerY - 4, 3, 3);
+        ctx.fillRect(centerX + 3, centerY - 4, 3, 3);
+        
+        // Eye pupils
+        ctx.fillStyle = '#000000';
+        const pupilOffset = isHurt ? 1 : 0;
+        ctx.fillRect(centerX - 5 + pupilOffset, centerY - 3 + pupilOffset, 1, 1);
+        ctx.fillRect(centerX + 4 + pupilOffset, centerY - 3 + pupilOffset, 1, 1);
+        
+        // Mouth - changes based on state
+        ctx.fillStyle = isHurt ? '#ff0000' : '#ffffff';
+        if (isHurt) {
+            // Hurt expression - open mouth
+            ctx.fillRect(centerX - 2, centerY + 2, 4, 2);
+        } else if (this.attackCooldown > 0) {
+            // Attacking expression - gritted teeth
+            ctx.fillRect(centerX - 3, centerY + 1, 6, 1);
+            ctx.fillRect(centerX - 2, centerY + 2, 1, 1);
+            ctx.fillRect(centerX, centerY + 2, 1, 1);
+            ctx.fillRect(centerX + 2, centerY + 2, 1, 1);
+        } else {
+            // Normal expression - small smile
+            ctx.fillRect(centerX - 2, centerY + 1, 4, 1);
+        }
+        
+        // Hero mustache
+        ctx.fillStyle = '#8b4513';
+        ctx.fillRect(centerX - 4, centerY, 8, 1);
+    }
+    
     render(ctx) {
         ctx.fillStyle = this.invulnerable > 0 ? '#ff6666' : '#3498db';
         ctx.fillRect(this.x, this.y, this.width, this.height);
+        
+        this.renderFace(ctx);
         
         if (this.attackCooldown > 15) {
             ctx.strokeStyle = '#ffffff';
@@ -439,9 +478,112 @@ class Monster {
         if (this.health < 0) this.health = 0;
     }
     
+    renderFace(ctx) {
+        const centerX = this.x + this.width / 2;
+        const centerY = this.y + this.height / 2;
+        const isLowHealth = this.health < this.maxHealth * 0.3;
+        
+        switch(this.type) {
+            case 'goblin':
+                // Goblin - small beady eyes, big grin
+                ctx.fillStyle = '#ffff00';
+                ctx.fillRect(centerX - 5, centerY - 3, 2, 2);
+                ctx.fillRect(centerX + 3, centerY - 3, 2, 2);
+                
+                // Pupils
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(centerX - 4, centerY - 2, 1, 1);
+                ctx.fillRect(centerX + 4, centerY - 2, 1, 1);
+                
+                // Big grin
+                ctx.fillStyle = isLowHealth ? '#ff0000' : '#000000';
+                ctx.fillRect(centerX - 4, centerY + 1, 8, 1);
+                if (!isLowHealth) {
+                    ctx.fillRect(centerX - 3, centerY + 2, 1, 1);
+                    ctx.fillRect(centerX + 2, centerY + 2, 1, 1);
+                }
+                
+                // Pointy ears
+                ctx.fillStyle = this.color;
+                ctx.fillRect(centerX - 8, centerY - 4, 2, 3);
+                ctx.fillRect(centerX + 6, centerY - 4, 2, 3);
+                break;
+                
+            case 'orc':
+                // Orc - angry eyes, tusks
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(centerX - 5, centerY - 4, 3, 2);
+                ctx.fillRect(centerX + 2, centerY - 4, 3, 2);
+                
+                // Angry pupils
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(centerX - 4, centerY - 3, 1, 1);
+                ctx.fillRect(centerX + 3, centerY - 3, 1, 1);
+                
+                // Snarling mouth
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(centerX - 3, centerY + 1, 6, 1);
+                
+                // Tusks
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(centerX - 4, centerY + 2, 1, 2);
+                ctx.fillRect(centerX + 3, centerY + 2, 1, 2);
+                break;
+                
+            case 'skeleton':
+                // Skeleton - hollow eyes, jaw
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(centerX - 5, centerY - 4, 3, 4);
+                ctx.fillRect(centerX + 2, centerY - 4, 3, 4);
+                
+                // Glowing dots in eye sockets
+                ctx.fillStyle = '#00ff00';
+                ctx.fillRect(centerX - 4, centerY - 2, 1, 1);
+                ctx.fillRect(centerX + 3, centerY - 2, 1, 1);
+                
+                // Skull jaw
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(centerX - 3, centerY + 1, 6, 1);
+                ctx.fillRect(centerX - 2, centerY + 2, 1, 1);
+                ctx.fillRect(centerX - 1, centerY + 3, 1, 1);
+                ctx.fillRect(centerX + 1, centerY + 2, 1, 1);
+                ctx.fillRect(centerX + 2, centerY + 3, 1, 1);
+                break;
+                
+            case 'troll':
+                // Troll - huge eyes, droopy expression
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(centerX - 6, centerY - 5, 4, 4);
+                ctx.fillRect(centerX + 2, centerY - 5, 4, 4);
+                
+                // Large pupils
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(centerX - 4, centerY - 3, 2, 2);
+                ctx.fillRect(centerX + 4, centerY - 3, 2, 2);
+                
+                // Droopy mouth
+                ctx.fillStyle = isLowHealth ? '#ff0000' : '#000000';
+                if (isLowHealth) {
+                    ctx.fillRect(centerX - 2, centerY + 2, 4, 2);
+                } else {
+                    ctx.fillRect(centerX - 1, centerY + 1, 2, 1);
+                    ctx.fillRect(centerX - 2, centerY + 2, 1, 1);
+                    ctx.fillRect(centerX + 1, centerY + 2, 1, 1);
+                }
+                
+                // Warts
+                ctx.fillStyle = '#228b22';
+                ctx.fillRect(centerX - 7, centerY - 1, 1, 1);
+                ctx.fillRect(centerX + 6, centerY + 1, 1, 1);
+                break;
+        }
+    }
+    
     render(ctx) {
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
+        
+        this.renderFace(ctx);
         
         const healthBarWidth = this.width;
         const healthPercent = this.health / this.maxHealth;
