@@ -5,7 +5,6 @@ class Game {
         this.player = new Player(300, 50);
         this.currentRoom = 1;
         this.monsters = [];
-        this.weapons = [];
         this.keys = {};
         this.gameState = 'playing';
         this.messages = [];
@@ -22,8 +21,6 @@ class Game {
             if (e.key === ' ') {
                 e.preventDefault();
                 this.player.attack(this.monsters);
-            } else if (e.key.toLowerCase() === 'r') {
-                this.player.pickupWeapon(this.weapons);
             }
         });
         
@@ -34,7 +31,6 @@ class Game {
     
     generateRoom() {
         this.monsters = [];
-        this.weapons = [];
         
         const monsterCount = Math.floor(Math.random() * 3) + 2 + Math.floor(this.currentRoom / 3);
         
@@ -47,12 +43,6 @@ class Game {
                 const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
                 this.monsters.push(new Monster(x, y, type, this.currentRoom));
             }
-        }
-        
-        if (Math.random() < 0.3 + (this.currentRoom * 0.05)) {
-            const x = Math.random() * (this.canvas.width - 60) + 30;
-            const y = Math.random() * (this.canvas.height - 60) + 30;
-            this.weapons.push(new Weapon(x, y, this.currentRoom));
         }
         
         this.addMessage(`Entered room ${this.currentRoom}. ${this.monsters.length} monsters await!`);
@@ -113,7 +103,6 @@ class Game {
         this.ctx.fillStyle = '#1a1a1a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        this.weapons.forEach(weapon => weapon.render(this.ctx));
         this.monsters.forEach(monster => monster.render(this.ctx));
         this.player.render(this.ctx);
         
@@ -157,7 +146,11 @@ class Player {
         this.level = 1;
         this.exp = 0;
         this.expToNext = 100;
-        this.weapon = new WeaponType('Rusty Sword', 10, 15);
+        this.weapons = {
+            sword: new WeaponType('Battle Sword', 15, 25),
+            gun: new WeaponType('Pistol', 20, 30)
+        };
+        this.currentWeapon = 'sword';
         this.attackCooldown = 0;
         this.invulnerable = 0;
     }
@@ -173,20 +166,33 @@ class Player {
     }
     
     attack(monsters) {
-        if (this.attackCooldown > 0) return;
+        if (this.attackCooldown > 0 || monsters.length === 0) return;
         
-        const attackRange = 50;
+        // Find nearest enemy
+        let nearestMonster = null;
+        let nearestDistance = Infinity;
+        
         monsters.forEach(monster => {
             const dx = monster.x - this.x;
             const dy = monster.y - this.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
             
-            if (distance < attackRange) {
-                const damage = this.weapon.getDamage();
-                monster.takeDamage(damage);
-                game.addMessage(`Hit ${monster.type} for ${damage} damage!`);
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestMonster = monster;
             }
         });
+        
+        if (nearestMonster) {
+            const weapon = this.weapons[this.currentWeapon];
+            const damage = weapon.getDamage();
+            nearestMonster.takeDamage(damage);
+            game.addMessage(`Hit ${nearestMonster.type} with ${weapon.name} for ${damage} damage!`);
+            
+            // Switch weapon after each attack
+            this.currentWeapon = this.currentWeapon === 'sword' ? 'gun' : 'sword';
+            this.updateWeaponUI();
+        }
         
         this.attackCooldown = 20;
     }
@@ -228,23 +234,6 @@ class Player {
         game.addMessage(`Level up! Now level ${this.level}`);
     }
     
-    pickupWeapon(weapons) {
-        const pickupRange = 30;
-        for (let i = weapons.length - 1; i >= 0; i--) {
-            const weapon = weapons[i];
-            const dx = weapon.x - this.x;
-            const dy = weapon.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distance < pickupRange) {
-                this.weapon = weapon.weaponType;
-                weapons.splice(i, 1);
-                game.addMessage(`Picked up ${this.weapon.name}!`);
-                this.updateWeaponUI();
-                break;
-            }
-        }
-    }
     
     updateUI() {
         document.getElementById('level').textContent = this.level;
@@ -258,8 +247,9 @@ class Player {
     }
     
     updateWeaponUI() {
-        document.getElementById('weaponName').textContent = this.weapon.name;
-        document.getElementById('weaponDamage').textContent = `Damage: ${this.weapon.minDamage}-${this.weapon.maxDamage}`;
+        const weapon = this.weapons[this.currentWeapon];
+        document.getElementById('weaponName').textContent = weapon.name;
+        document.getElementById('weaponDamage').textContent = `Damage: ${weapon.minDamage}-${weapon.maxDamage}`;
     }
     
     render(ctx) {
