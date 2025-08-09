@@ -77,8 +77,19 @@ class Game {
             }
         }
         
+        // Special boss room handling
         if (this.currentRoom === 15) {
-            this.addMessage(`FINAL ROOM ${this.currentRoom}! Defeat all enemies to win!`);
+            // Clear regular monsters and spawn boss
+            this.monsters = [];
+            const bossTypes = ['DragonLord', 'NecromancerKing', 'TrollChieftain', 'ShadowWraith', 'GolemMaster'];
+            const randomBossType = bossTypes[Math.floor(Math.random() * bossTypes.length)];
+            
+            // Spawn boss in center of room
+            const bossX = this.canvas.width / 2 - 15;
+            const bossY = this.canvas.height / 2 - 15;
+            this.monsters.push(new Boss(bossX, bossY, randomBossType, this.currentRoom));
+            
+            this.addMessage(`FINAL ROOM! Face the mighty ${randomBossType}!`);
         } else {
             this.addMessage(`Room ${this.currentRoom}/15 - ${this.monsters.length} monsters await!`);
         }
@@ -114,7 +125,13 @@ class Game {
         // Update bullets
         this.bullets.forEach(bullet => {
             bullet.update();
-            bullet.checkCollision(this.monsters);
+            if (bullet.checkCollision) {
+                bullet.checkCollision(this.monsters);
+            }
+            // Handle boss projectiles hitting player
+            if (bullet.constructor.name === 'BossProjectile') {
+                bullet.checkCollision(this.player);
+            }
         });
         
         // Remove dead bullets
@@ -721,6 +738,351 @@ class Monster {
     }
 }
 
+class Boss {
+    constructor(x, y, type, roomLevel) {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        this.width = 30; // Larger than regular monsters
+        this.height = 30;
+        this.speed = 0.8; // Slower but more powerful
+        this.attackCooldown = 0;
+        this.lastAttack = 0;
+        this.specialCooldown = 0;
+        this.lastSpecialAttack = 0;
+        
+        const stats = this.getBossStats(type);
+        this.maxHealth = stats.health;
+        this.health = this.maxHealth;
+        this.damage = stats.damage;
+        this.expReward = stats.exp;
+        this.color = stats.color;
+        this.specialAbility = stats.special;
+    }
+    
+    getBossStats(type) {
+        const bossStats = {
+            DragonLord: { 
+                health: 300, 
+                damage: 25, 
+                exp: 200, 
+                color: '#8B0000',
+                special: 'fireBreath'
+            },
+            NecromancerKing: { 
+                health: 250, 
+                damage: 20, 
+                exp: 180, 
+                color: '#4B0082',
+                special: 'summonMinions'
+            },
+            TrollChieftain: { 
+                health: 400, 
+                damage: 30, 
+                exp: 220, 
+                color: '#228B22',
+                special: 'groundPound'
+            },
+            ShadowWraith: { 
+                health: 200, 
+                damage: 35, 
+                exp: 190, 
+                color: '#2F2F2F',
+                special: 'shadowStrike'
+            },
+            GolemMaster: { 
+                health: 450, 
+                damage: 28, 
+                exp: 250, 
+                color: '#696969',
+                special: 'rockThrow'
+            }
+        };
+        
+        return bossStats[type];
+    }
+    
+    update(player) {
+        // Basic movement toward player
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > 5) {
+            this.x += (dx / distance) * this.speed;
+            this.y += (dy / distance) * this.speed;
+        }
+        
+        if (this.attackCooldown > 0) this.attackCooldown--;
+        if (this.specialCooldown > 0) this.specialCooldown--;
+        
+        // Use special ability occasionally
+        if (this.specialCooldown === 0 && Math.random() < 0.15) {
+            this.useSpecialAbility(player);
+            this.specialCooldown = 180; // 3 second cooldown
+        }
+    }
+    
+    useSpecialAbility(player) {
+        switch(this.specialAbility) {
+            case 'fireBreath':
+                // Dragon breathes fire in a cone
+                game.addMessage(`${this.type} breathes fire!`);
+                soundManager.bossSpecial();
+                // Deal damage if player is in front
+                const dx = player.x - this.x;
+                const dy = player.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < 80) {
+                    player.takeDamage(15);
+                }
+                break;
+                
+            case 'summonMinions':
+                // Necromancer summons skeleton minions
+                game.addMessage(`${this.type} summons skeleton minions!`);
+                soundManager.bossSpecial();
+                for (let i = 0; i < 2; i++) {
+                    const minionX = this.x + (Math.random() - 0.5) * 100;
+                    const minionY = this.y + (Math.random() - 0.5) * 100;
+                    if (minionX > 0 && minionX < game.canvas.width - 20 && 
+                        minionY > 0 && minionY < game.canvas.height - 20) {
+                        game.monsters.push(new Monster(minionX, minionY, 'skeleton', 15));
+                    }
+                }
+                break;
+                
+            case 'groundPound':
+                // Troll pounds ground causing area damage
+                game.addMessage(`${this.type} pounds the ground!`);
+                soundManager.bossSpecial();
+                const distanceToPlayer = Math.sqrt((player.x - this.x) ** 2 + (player.y - this.y) ** 2);
+                if (distanceToPlayer < 100) {
+                    player.takeDamage(20);
+                }
+                break;
+                
+            case 'shadowStrike':
+                // Wraith teleports and strikes
+                game.addMessage(`${this.type} strikes from the shadows!`);
+                soundManager.bossSpecial();
+                // Teleport near player
+                this.x = player.x + (Math.random() - 0.5) * 60;
+                this.y = player.y + (Math.random() - 0.5) * 60;
+                player.takeDamage(25);
+                break;
+                
+            case 'rockThrow':
+                // Golem throws rocks
+                game.addMessage(`${this.type} hurls massive rocks!`);
+                soundManager.bossSpecial();
+                // Create multiple rock projectiles
+                for (let i = 0; i < 3; i++) {
+                    const angle = (Math.PI * 2 * i) / 3;
+                    const rockX = this.x + Math.cos(angle) * 15;
+                    const rockY = this.y + Math.sin(angle) * 15;
+                    const dirX = Math.cos(angle);
+                    const dirY = Math.sin(angle);
+                    game.bullets.push(new BossProjectile(rockX, rockY, dirX, dirY, 15, '#8B4513'));
+                }
+                break;
+        }
+    }
+    
+    checkCollision(player) {
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < 35 && this.attackCooldown === 0) {
+            player.takeDamage(this.damage);
+            this.attackCooldown = 90; // Slower attack rate than regular monsters
+        }
+    }
+    
+    takeDamage(damage) {
+        this.health -= damage;
+        if (this.health < 0) this.health = 0;
+    }
+    
+    renderFace(ctx) {
+        const centerX = this.x + this.width / 2;
+        const centerY = this.y + this.height / 2;
+        const isLowHealth = this.health < this.maxHealth * 0.3;
+        
+        switch(this.type) {
+            case 'DragonLord':
+                // Dragon - fierce glowing eyes, fanged mouth
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(centerX - 8, centerY - 6, 4, 4);
+                ctx.fillRect(centerX + 4, centerY - 6, 4, 4);
+                
+                // Glowing pupils
+                ctx.fillStyle = '#FF4500';
+                ctx.fillRect(centerX - 6, centerY - 4, 2, 2);
+                ctx.fillRect(centerX + 6, centerY - 4, 2, 2);
+                
+                // Fanged mouth
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(centerX - 6, centerY + 2, 12, 2);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(centerX - 5, centerY + 4, 2, 3);
+                ctx.fillRect(centerX + 3, centerY + 4, 2, 3);
+                
+                // Horns
+                ctx.fillStyle = '#8B0000';
+                ctx.fillRect(centerX - 10, centerY - 8, 2, 4);
+                ctx.fillRect(centerX + 8, centerY - 8, 2, 4);
+                break;
+                
+            case 'NecromancerKing':
+                // Necromancer - hollow glowing eyes, mystical runes
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(centerX - 7, centerY - 5, 4, 5);
+                ctx.fillRect(centerX + 3, centerY - 5, 4, 5);
+                
+                ctx.fillStyle = '#9370DB';
+                ctx.fillRect(centerX - 5, centerY - 3, 1, 1);
+                ctx.fillRect(centerX + 5, centerY - 3, 1, 1);
+                
+                // Mystical mouth
+                ctx.fillStyle = '#4B0082';
+                ctx.fillRect(centerX - 3, centerY + 2, 6, 1);
+                
+                // Crown
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(centerX - 6, centerY - 10, 12, 2);
+                ctx.fillRect(centerX - 2, centerY - 12, 1, 2);
+                ctx.fillRect(centerX + 1, centerY - 12, 1, 2);
+                break;
+                
+            case 'TrollChieftain':
+                // Massive troll - huge eyes, tusks, war paint
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(centerX - 8, centerY - 7, 5, 5);
+                ctx.fillRect(centerX + 3, centerY - 7, 5, 5);
+                
+                ctx.fillStyle = '#8B0000';
+                ctx.fillRect(centerX - 6, centerY - 5, 2, 2);
+                ctx.fillRect(centerX + 5, centerY - 5, 2, 2);
+                
+                // War paint
+                ctx.fillStyle = '#FF0000';
+                ctx.fillRect(centerX - 9, centerY - 2, 3, 1);
+                ctx.fillRect(centerX + 6, centerY - 2, 3, 1);
+                
+                // Large tusks
+                ctx.fillStyle = '#FFFACD';
+                ctx.fillRect(centerX - 6, centerY + 3, 2, 4);
+                ctx.fillRect(centerX + 4, centerY + 3, 2, 4);
+                break;
+                
+            case 'ShadowWraith':
+                // Ethereal wraith - shifting shadowy features
+                const flicker = Math.sin(Date.now() * 0.01) > 0;
+                ctx.fillStyle = flicker ? '#800080' : '#4B0082';
+                ctx.fillRect(centerX - 6, centerY - 5, 3, 6);
+                ctx.fillRect(centerX + 3, centerY - 5, 3, 6);
+                
+                ctx.fillStyle = '#00FFFF';
+                if (flicker) {
+                    ctx.fillRect(centerX - 4, centerY - 3, 1, 1);
+                    ctx.fillRect(centerX + 5, centerY - 3, 1, 1);
+                }
+                
+                // Ghostly mouth
+                ctx.fillStyle = '#2F2F2F';
+                ctx.fillRect(centerX - 2, centerY + 2, 4, 2);
+                break;
+                
+            case 'GolemMaster':
+                // Stone golem - rocky features, glowing core
+                ctx.fillStyle = '#A0522D';
+                ctx.fillRect(centerX - 7, centerY - 6, 4, 4);
+                ctx.fillRect(centerX + 3, centerY - 6, 4, 4);
+                
+                ctx.fillStyle = '#FFA500';
+                ctx.fillRect(centerX - 5, centerY - 4, 1, 1);
+                ctx.fillRect(centerX + 5, centerY - 4, 1, 1);
+                
+                // Stone mouth
+                ctx.fillStyle = '#2F4F4F';
+                ctx.fillRect(centerX - 3, centerY + 1, 6, 2);
+                
+                // Glowing core in forehead
+                ctx.fillStyle = '#00BFFF';
+                ctx.fillRect(centerX - 1, centerY - 8, 2, 2);
+                break;
+        }
+    }
+    
+    render(ctx) {
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        
+        this.renderFace(ctx);
+        
+        // Boss health bar (larger and more prominent)
+        const healthBarWidth = this.width + 10;
+        const healthPercent = this.health / this.maxHealth;
+        ctx.fillStyle = '#333';
+        ctx.fillRect(this.x - 5, this.y - 15, healthBarWidth, 6);
+        ctx.fillStyle = '#FF6B6B';
+        ctx.fillRect(this.x - 5, this.y - 15, healthBarWidth * healthPercent, 6);
+        
+        // Boss name above health bar
+        ctx.fillStyle = '#FFD700';
+        ctx.font = '10px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.type, this.x + this.width/2, this.y - 18);
+    }
+}
+
+class BossProjectile {
+    constructor(x, y, dirX, dirY, damage, color) {
+        this.x = x;
+        this.y = y;
+        this.dirX = dirX;
+        this.dirY = dirY;
+        this.speed = 4;
+        this.damage = damage;
+        this.width = 6;
+        this.height = 6;
+        this.color = color;
+        this.active = true;
+    }
+    
+    update() {
+        this.x += this.dirX * this.speed;
+        this.y += this.dirY * this.speed;
+        
+        if (this.x < 0 || this.x > 600 || this.y < 0 || this.y > 600) {
+            this.active = false;
+        }
+    }
+    
+    checkCollision(player) {
+        if (!this.active) return;
+        
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < 20) {
+            player.takeDamage(this.damage);
+            game.addMessage(`Boss projectile hit for ${this.damage} damage!`);
+            this.active = false;
+        }
+    }
+    
+    render(ctx) {
+        if (!this.active) return;
+        
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x - this.width/2, this.y - this.height/2, this.width, this.height);
+    }
+}
+
 class WeaponType {
     constructor(name, minDamage, maxDamage) {
         this.name = name;
@@ -969,6 +1331,14 @@ class SoundManager {
             this.playTone(659, 1.0, 'triangle', 0.3); // E  
             this.playTone(784, 1.0, 'triangle', 0.3); // G
         }, 1200);
+    }
+    
+    bossSpecial() {
+        // Dramatic boss special ability sound
+        this.playTone(200, 0.1, 'sawtooth', 0.4);
+        setTimeout(() => this.playTone(150, 0.15, 'triangle', 0.3), 100);
+        setTimeout(() => this.playTone(300, 0.2, 'square', 0.5), 200);
+        setTimeout(() => this.playTone(100, 0.3, 'sine', 0.2), 350);
     }
 }
 
