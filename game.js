@@ -473,7 +473,6 @@ class Player {
     }
     
     updateUI() {
-        document.getElementById('level').textContent = this.level;
         document.getElementById('health').textContent = `${this.health}/${this.maxHealth}`;
         document.getElementById('mana').textContent = `${this.mana}/${this.maxMana}`;
         document.getElementById('exp').textContent = `${this.exp}/${this.expToNext}`;
