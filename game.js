@@ -99,6 +99,12 @@ class Game {
             } else if (this.currentLevel === 3) {
                 // Level 3 always spawns DragonLord
                 selectedBossType = 'DragonLord';
+            } else if (this.currentLevel === 4) {
+                // Level 4 always spawns TrollChieftain
+                selectedBossType = 'TrollChieftain';
+            } else if (this.currentLevel === 5) {
+                // Level 5 always spawns GolemMaster
+                selectedBossType = 'GolemMaster';
             } else {
                 // Other levels spawn random bosses
                 const bossTypes = ['DragonLord', 'NecromancerKing', 'TrollChieftain', 'ShadowWraith', 'GolemMaster'];
