@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dungeon Crawler</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #222;
+            color: white;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .game-container {
+            display: flex;
+            gap: 20px;
+        }
+        canvas {
+            border: 2px solid #666;
+            background-color: #111;
+        }
+        .ui-panel {
+            width: 250px;
+            background-color: #333;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .stat-bar {
+            margin: 10px 0;
+        }
+        .bar {
+            width: 100%;
+            height: 20px;
+            background-color: #555;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            transition: width 0.3s;
+        }
+        .health-bar { background-color: #e74c3c; }
+        .mana-bar { background-color: #3498db; }
+        .exp-bar { background-color: #f39c12; }
+        .controls {
+            margin-top: 20px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .message-log {
+            background-color: #444;
+            padding: 10px;
+            border-radius: 5px;
+            height: 150px;
+            overflow-y: scroll;
+            font-size: 12px;
+            margin-top: 15px;
+        }
+        .weapon-info {
+            background-color: #444;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="600" height="600"></canvas>
+        <div class="ui-panel">
+            <h3>Player Stats</h3>
+            <div>Level: <span id="level">1</span></div>
+            <div>Room: <span id="room">1</span></div>
+            
+            <div class="stat-bar">
+                <div>Health: <span id="health">100/100</span></div>
+                <div class="bar"><div class="bar-fill health-bar" id="healthBar" style="width: 100%"></div></div>
+            </div>
+            
+            <div class="stat-bar">
+                <div>Mana: <span id="mana">50/50</span></div>
+                <div class="bar"><div class="bar-fill mana-bar" id="manaBar" style="width: 100%"></div></div>
+            </div>
+            
+            <div class="stat-bar">
+                <div>Experience: <span id="exp">0/100</span></div>
+                <div class="bar"><div class="bar-fill exp-bar" id="expBar" style="width: 0%"></div></div>
+            </div>
+
+            <div class="weapon-info">
+                <h4>Current Weapon</h4>
+                <div id="weaponName">Rusty Sword</div>
+                <div id="weaponDamage">Damage: 10-15</div>
+            </div>
+            
+            <div class="controls">
+                <strong>Controls:</strong><br>
+                WASD - Move<br>
+                SPACE - Attack<br>
+                E - Next Room (when clear)<br>
+                R - Pick up weapon
+            </div>
+            
+            <div class="message-log" id="messageLog">
+                <div>Welcome to the Dungeon!</div>
+                <div>Defeat all monsters to advance.</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
