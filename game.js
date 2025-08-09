@@ -7,15 +7,15 @@ class Game {
         this.monsters = [];
         this.bullets = [];
         this.keys = {};
-        this.gameState = 'playing';
+        this.gameState = 'menu';
         this.messages = [];
         
         this.setupEventListeners();
-        this.generateRoom();
         this.gameLoop();
         
-        // Play startup sound after a brief delay
-        setTimeout(() => soundManager.gameStart(), 500);
+        // Show initial menu message
+        this.addMessage('Welcome to the Dungeon Crawler!');
+        this.addMessage('Press R to begin your adventure.');
     }
     
     setupEventListeners() {
@@ -26,8 +26,12 @@ class Game {
                 e.preventDefault();
             }
             
-            if (this.gameState === 'gameOver' && e.key.toLowerCase() === 'r') {
-                this.restart();
+            if ((this.gameState === 'gameOver' || this.gameState === 'menu') && e.key.toLowerCase() === 'r') {
+                if (this.gameState === 'menu') {
+                    this.startGame();
+                } else {
+                    this.restart();
+                }
             } else if (this.gameState === 'playing') {
                 if (e.key === ' ') {
                     this.player.attack(this.monsters);
@@ -150,6 +154,36 @@ class Game {
             this.ctx.fillText('Walk into entrance', this.canvas.width / 2, this.canvas.height - 50);
         }
         
+        // Draw main menu screen
+        if (this.gameState === 'menu') {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            this.ctx.fillStyle = '#f39c12';
+            this.ctx.font = '42px Courier New';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('DUNGEON CRAWLER', this.canvas.width / 2, this.canvas.height / 2 - 100);
+            
+            this.ctx.fillStyle = '#3498db';
+            this.ctx.font = '18px Courier New';
+            this.ctx.fillText('A Pixel Adventure Game', this.canvas.width / 2, this.canvas.height / 2 - 60);
+            
+            this.ctx.fillStyle = '#2ecc71';
+            this.ctx.font = '24px Courier New';
+            this.ctx.fillText('Press R to Start', this.canvas.width / 2, this.canvas.height / 2 + 20);
+            
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.font = '14px Courier New';
+            this.ctx.fillText('Controls: Arrow Keys - Move, SPACE - Attack, G - Switch Weapon', this.canvas.width / 2, this.canvas.height / 2 + 80);
+            
+            // Animated subtitle
+            const time = Date.now() * 0.003;
+            const alpha = 0.5 + 0.5 * Math.sin(time);
+            this.ctx.fillStyle = `rgba(231, 76, 60, ${alpha})`;
+            this.ctx.font = '16px Courier New';
+            this.ctx.fillText('Defeat monsters, advance through rooms, become legendary!', this.canvas.width / 2, this.canvas.height / 2 + 50);
+        }
+        
         // Draw game over screen
         if (this.gameState === 'gameOver') {
             this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
@@ -168,6 +202,23 @@ class Game {
             this.ctx.font = '20px Courier New';
             this.ctx.fillText('Press R to restart', this.canvas.width / 2, this.canvas.height / 2 + 30);
         }
+    }
+    
+    startGame() {
+        this.player = new Player(300, 50);
+        this.currentRoom = 1;
+        this.monsters = [];
+        this.bullets = [];
+        this.gameState = 'playing';
+        this.messages = [];
+        this.generateRoom();
+        this.addMessage('Adventure begins!');
+        document.getElementById('room').textContent = this.currentRoom;
+        this.player.updateUI();
+        this.player.updateWeaponUI();
+        
+        // Play startup sound
+        setTimeout(() => soundManager.gameStart(), 200);
     }
     
     restart() {
