@@ -21,6 +21,8 @@ class Game {
             if (e.key === ' ') {
                 e.preventDefault();
                 this.player.attack(this.monsters);
+            } else if (e.key.toLowerCase() === 'g') {
+                this.player.switchWeapon();
             }
         });
         
@@ -188,10 +190,6 @@ class Player {
             const damage = weapon.getDamage();
             nearestMonster.takeDamage(damage);
             game.addMessage(`Hit ${nearestMonster.type} with ${weapon.name} for ${damage} damage!`);
-            
-            // Switch weapon after each attack
-            this.currentWeapon = this.currentWeapon === 'sword' ? 'gun' : 'sword';
-            this.updateWeaponUI();
         }
         
         this.attackCooldown = 20;
@@ -234,6 +232,12 @@ class Player {
         game.addMessage(`Level up! Now level ${this.level}`);
     }
     
+    switchWeapon() {
+        this.currentWeapon = this.currentWeapon === 'sword' ? 'gun' : 'sword';
+        this.updateWeaponUI();
+        const weapon = this.weapons[this.currentWeapon];
+        game.addMessage(`Switched to ${weapon.name}`);
+    }
     
     updateUI() {
         document.getElementById('level').textContent = this.level;
