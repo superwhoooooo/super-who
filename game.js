@@ -23,7 +23,7 @@ class Game {
         document.addEventListener('keydown', (e) => {
             this.keys[e.key] = true;
             
-            if (e.key === ' ' || e.key.startsWith('Arrow') || e.key.toLowerCase() === 'r') {
+            if (e.key === ' ' || e.key.startsWith('Arrow') || e.key.toLowerCase() === 'r' || e.key.toLowerCase() === 'f') {
                 e.preventDefault();
             }
             
@@ -38,6 +38,8 @@ class Game {
                     this.player.attack(this.monsters);
                 } else if (e.key.toLowerCase() === 'g') {
                     this.player.switchWeapon();
+                } else if (e.key.toLowerCase() === 'f') {
+                    this.player.freezeEnemies(this.monsters);
                 }
             }
         });
@@ -209,6 +211,13 @@ class Game {
                     this.player.monsterReduction += 1;
                     this.addMessage('Shadow essence absorbed! Fewer monsters will spawn in future rooms.');
                     soundManager.victory(); // Special sound for rare drop
+                }
+                
+                // Necromancer King always drops Wizard Staff
+                if (monster.type === 'NecromancerKing') {
+                    this.player.hasWizardStaff = true;
+                    this.addMessage('You obtained the Wizard Staff! Shoots bouncing magic bolts. Press F to freeze enemies!');
+                    soundManager.victory();
                 }
                 
                 return false;
@@ -405,13 +414,16 @@ class Player {
         this.expToNext = 100;
         this.weapons = {
             sword: new WeaponType('Battle Sword', 15, 25),
-            gun: new WeaponType('Pistol', 20, 30)
+            gun: new WeaponType('Pistol', 20, 30),
+            staff: new WeaponType('Wizard Staff', 18, 28)
         };
+        this.hasWizardStaff = false;
         this.currentWeapon = 'sword';
         this.attackCooldown = 0;
         this.invulnerable = 0;
         this.lastDirection = { x: 0, y: -1 }; // Default facing up
         this.monsterReduction = 0; // Reduces monster spawns per room
+        this.freezeCooldown = 0; // Cooldown for freeze ability
     }
     
     update(keys, canvas) {
@@ -444,6 +456,7 @@ class Player {
         
         if (this.attackCooldown > 0) this.attackCooldown--;
         if (this.invulnerable > 0) this.invulnerable--;
+        if (this.freezeCooldown > 0) this.freezeCooldown--;
     }
     
     attack(monsters) {
@@ -461,6 +474,18 @@ class Player {
             game.bullets.push(bullet);
             game.addMessage(`Fired ${this.weapons.gun.name}!`);
             soundManager.gunShot();
+        } else if (this.currentWeapon === 'staff' && this.hasWizardStaff) {
+            // Shoot bouncing magic bolt
+            const bouncingBullet = new BouncingBullet(
+                this.x + this.width / 2,
+                this.y + this.height / 2,
+                -this.lastDirection.x,
+                -this.lastDirection.y,
+                this.weapons.staff.getDamage()
+            );
+            game.bullets.push(bouncingBullet);
+            game.addMessage(`Cast ${this.weapons.staff.name} magic bolt!`);
+            soundManager.gunShot(); // TODO: Add magic sound
         } else {
             // Sword: short range melee attack
             if (monsters.length === 0) return;
@@ -491,6 +516,19 @@ class Player {
         }
         
         this.attackCooldown = 20;
+    }
+    
+    freezeEnemies(monsters) {
+        if (!this.hasWizardStaff || this.freezeCooldown > 0) return;
+        
+        // Freeze all monsters for 2 seconds (120 frames at 60fps)
+        monsters.forEach(monster => {
+            monster.frozen = 120;
+        });
+        
+        this.freezeCooldown = 600; // 10 second cooldown
+        game.addMessage('Wizard Staff: All enemies frozen for 2 seconds!');
+        soundManager.levelUp(); // Use level up sound for special ability
     }
     
     takeDamage(damage) {
@@ -533,7 +571,16 @@ class Player {
     }
     
     switchWeapon() {
-        this.currentWeapon = this.currentWeapon === 'sword' ? 'gun' : 'sword';
+        // Cycle through available weapons
+        const availableWeapons = ['sword', 'gun'];
+        if (this.hasWizardStaff) {
+            availableWeapons.push('staff');
+        }
+        
+        const currentIndex = availableWeapons.indexOf(this.currentWeapon);
+        const nextIndex = (currentIndex + 1) % availableWeapons.length;
+        this.currentWeapon = availableWeapons[nextIndex];
+        
         this.updateWeaponUI();
         const weapon = this.weapons[this.currentWeapon];
         game.addMessage(`Switched to ${weapon.name}`);
@@ -603,6 +650,23 @@ class Player {
             // Gun grip
             ctx.fillStyle = '#8B4513'; // Brown grip
             ctx.fillRect(centerX + weaponOffsetX + 1, centerY + weaponOffsetY + 3, 2, 3);
+        } else if (this.currentWeapon === 'staff' && this.hasWizardStaff) {
+            // Draw wizard staff
+            ctx.fillStyle = '#8B4513'; // Brown staff handle
+            ctx.fillRect(centerX + weaponOffsetX, centerY + weaponOffsetY - 3, 1, 12);
+            
+            // Magic crystal at top
+            ctx.fillStyle = '#9370DB'; // Purple crystal
+            ctx.fillRect(centerX + weaponOffsetX - 1, centerY + weaponOffsetY - 5, 3, 3);
+            
+            // Crystal glow
+            ctx.fillStyle = 'rgba(147, 112, 219, 0.6)';
+            ctx.fillRect(centerX + weaponOffsetX - 2, centerY + weaponOffsetY - 6, 5, 5);
+            
+            // Staff decorations
+            ctx.fillStyle = '#FFD700'; // Gold bands
+            ctx.fillRect(centerX + weaponOffsetX - 1, centerY + weaponOffsetY, 3, 1);
+            ctx.fillRect(centerX + weaponOffsetX - 1, centerY + weaponOffsetY + 4, 3, 1);
         } else {
             // Draw sword
             ctx.fillStyle = '#C0C0C0'; // Silver blade
@@ -695,6 +759,7 @@ class Monster {
         this.damage = stats.damage;
         this.expReward = stats.exp;
         this.color = stats.color;
+        this.frozen = 0; // Freeze timer
     }
     
     getMonsterStats(type, roomLevel) {
@@ -717,6 +782,12 @@ class Monster {
     }
     
     update(player) {
+        // Handle freeze effect
+        if (this.frozen > 0) {
+            this.frozen--;
+            return; // Skip movement and attack updates when frozen
+        }
+        
         const dx = player.x - this.x;
         const dy = player.y - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
@@ -971,6 +1042,7 @@ class Boss {
         this.expReward = stats.exp;
         this.color = stats.color;
         this.specialAbility = stats.special;
+        this.frozen = 0; // Freeze timer
     }
     
     getBossStats(type) {
@@ -1016,6 +1088,12 @@ class Boss {
     }
     
     update(player) {
+        // Handle freeze effect
+        if (this.frozen > 0) {
+            this.frozen--;
+            return; // Skip movement, attacks, and special abilities when frozen
+        }
+        
         // Basic movement toward player
         const dx = player.x - this.x;
         const dy = player.y - this.y;
@@ -1530,6 +1608,85 @@ class Bullet {
         const trail2X = this.x - this.dirX * 16;
         const trail2Y = this.y - this.dirY * 16;
         ctx.fillRect(trail2X, trail2Y, 1, 1);
+    }
+}
+
+class BouncingBullet {
+    constructor(x, y, dirX, dirY, damage) {
+        this.x = x;
+        this.y = y;
+        this.dirX = dirX;
+        this.dirY = dirY;
+        this.speed = 6;
+        this.damage = damage;
+        this.width = 5;
+        this.height = 5;
+        this.active = true;
+        this.bounces = 0;
+        this.maxBounces = 1;
+    }
+    
+    update() {
+        this.x += this.dirX * this.speed;
+        this.y += this.dirY * this.speed;
+        
+        // Bounce off walls if haven't used all bounces
+        if (this.bounces < this.maxBounces) {
+            if (this.x <= 0 || this.x >= 600) {
+                this.dirX = -this.dirX;
+                this.bounces++;
+                this.x = Math.max(0, Math.min(600, this.x));
+            }
+            if (this.y <= 0 || this.y >= 600) {
+                this.dirY = -this.dirY;
+                this.bounces++;
+                this.y = Math.max(0, Math.min(600, this.y));
+            }
+        } else {
+            // Remove bullet if it goes off screen after bouncing
+            if (this.x < 0 || this.x > 600 || this.y < 0 || this.y > 600) {
+                this.active = false;
+            }
+        }
+    }
+    
+    checkCollision(monsters) {
+        if (!this.active) return;
+        
+        monsters.forEach(monster => {
+            const dx = monster.x - this.x;
+            const dy = monster.y - this.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < 15) {
+                monster.takeDamage(this.damage, 'staff');
+                game.addMessage(`Magic bolt hit ${monster.type} for ${this.damage} damage!`);
+                soundManager.hit();
+                this.active = false;
+            }
+        });
+    }
+    
+    render(ctx) {
+        if (!this.active) return;
+        
+        // Purple magic bolt
+        ctx.fillStyle = '#9370DB';
+        ctx.fillRect(this.x - this.width/2, this.y - this.height/2, this.width, this.height);
+        
+        // Magic glow
+        ctx.fillStyle = 'rgba(147, 112, 219, 0.6)';
+        ctx.fillRect(this.x - this.width/2 - 1, this.y - this.height/2 - 1, this.width + 2, this.height + 2);
+        
+        // Magic sparkles
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.fillRect(this.x - 1, this.y - 1, 2, 2);
+        
+        // Magic trail
+        ctx.fillStyle = 'rgba(147, 112, 219, 0.4)';
+        const trailX = this.x - this.dirX * 6;
+        const trailY = this.y - this.dirY * 6;
+        ctx.fillRect(trailX - 1, trailY - 1, 2, 2);
     }
 }
 
