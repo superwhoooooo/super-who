@@ -520,7 +520,7 @@ class Player {
     }
     
     renderWeapon(ctx, centerX, centerY) {
-        const weaponOffsetX = 8; // Position weapon to the right of player
+        const weaponOffsetX = 12; // Position weapon further to the right of player
         const weaponOffsetY = 2; // Slightly below center
         
         if (this.currentWeapon === 'gun') {
