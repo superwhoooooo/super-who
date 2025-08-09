@@ -13,6 +13,9 @@ class Game {
         this.setupEventListeners();
         this.generateRoom();
         this.gameLoop();
+        
+        // Play startup sound after a brief delay
+        setTimeout(() => soundManager.gameStart(), 500);
     }
     
     setupEventListeners() {
@@ -64,6 +67,7 @@ class Game {
         this.player.restoreMana(10);
         this.generateRoom();
         document.getElementById('room').textContent = this.currentRoom;
+        soundManager.roomAdvance();
     }
     
     addMessage(text) {
@@ -97,6 +101,7 @@ class Game {
             if (monster.health <= 0) {
                 this.player.gainExp(monster.expReward);
                 this.addMessage(`Defeated ${monster.type}! +${monster.expReward} XP`);
+                soundManager.monsterDeath();
                 return false;
             }
             return true;
@@ -111,6 +116,7 @@ class Game {
         if (this.player.health <= 0) {
             this.gameState = 'gameOver';
             this.addMessage('Game Over! Press R to restart.');
+            soundManager.gameOver();
         }
         
         this.player.updateUI();
@@ -232,6 +238,11 @@ class Player {
             moved = true;
         }
         
+        // Occasional footstep sound when moving
+        if (moved && Math.random() < 0.1) {
+            soundManager.footstep();
+        }
+        
         if (this.attackCooldown > 0) this.attackCooldown--;
         if (this.invulnerable > 0) this.invulnerable--;
     }
@@ -250,6 +261,7 @@ class Player {
             );
             game.bullets.push(bullet);
             game.addMessage(`Fired ${this.weapons.gun.name}!`);
+            soundManager.gunShot();
         } else {
             // Sword: short range melee attack
             if (monsters.length === 0) return;
@@ -266,12 +278,16 @@ class Player {
                     const damage = this.weapons.sword.getDamage();
                     monster.takeDamage(damage);
                     game.addMessage(`Hit ${monster.type} with ${this.weapons.sword.name} for ${damage} damage!`);
+                    soundManager.hit();
                     hit = true;
                 }
             });
             
             if (!hit) {
                 game.addMessage('Sword swing missed! Get closer!');
+                soundManager.miss();
+            } else {
+                soundManager.swordSwish();
             }
         }
         
@@ -285,6 +301,7 @@ class Player {
         if (this.health < 0) this.health = 0;
         this.invulnerable = 30;
         game.addMessage(`Took ${damage} damage!`);
+        soundManager.takeDamage();
     }
     
     heal(amount) {
@@ -313,6 +330,7 @@ class Player {
         this.maxMana += 10;
         this.mana = this.maxMana;
         game.addMessage(`Level up! Now level ${this.level}`);
+        soundManager.levelUp();
     }
     
     switchWeapon() {
@@ -320,6 +338,7 @@ class Player {
         this.updateWeaponUI();
         const weapon = this.weapons[this.currentWeapon];
         game.addMessage(`Switched to ${weapon.name}`);
+        soundManager.weaponSwitch();
     }
     
     updateUI() {
@@ -520,6 +539,7 @@ class Bullet {
             if (distance < 15) {
                 monster.takeDamage(this.damage);
                 game.addMessage(`Bullet hit ${monster.type} for ${this.damage} damage!`);
+                soundManager.hit();
                 this.active = false;
             }
         });
@@ -533,7 +553,144 @@ class Bullet {
     }
 }
 
+class SoundManager {
+    constructor() {
+        this.audioContext = null;
+        this.enabled = true;
+        this.initAudio();
+    }
+    
+    initAudio() {
+        try {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+            console.log('Web Audio API not supported');
+            this.enabled = false;
+        }
+    }
+    
+    playTone(frequency, duration, type = 'sine', volume = 0.3) {
+        if (!this.enabled || !this.audioContext) return;
+        
+        const oscillator = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+        
+        oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+        oscillator.type = type;
+        
+        gainNode.gain.setValueAtTime(volume, this.audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+        
+        oscillator.start(this.audioContext.currentTime);
+        oscillator.stop(this.audioContext.currentTime + duration);
+    }
+    
+    // Quirky sound effects
+    swordSwish() {
+        // Whoosh sound - frequency sweep
+        const oscillator = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+        
+        oscillator.frequency.setValueAtTime(800, this.audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(200, this.audioContext.currentTime + 0.15);
+        oscillator.type = 'sawtooth';
+        
+        gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
+        
+        oscillator.start();
+        oscillator.stop(this.audioContext.currentTime + 0.15);
+    }
+    
+    gunShot() {
+        // Pew pew laser sound
+        this.playTone(600, 0.1, 'square', 0.3);
+        setTimeout(() => this.playTone(400, 0.05, 'square', 0.2), 50);
+    }
+    
+    weaponSwitch() {
+        // Mechanical click-whirr
+        this.playTone(300, 0.05, 'triangle', 0.4);
+        setTimeout(() => this.playTone(500, 0.05, 'triangle', 0.3), 60);
+        setTimeout(() => this.playTone(400, 0.1, 'sine', 0.2), 120);
+    }
+    
+    hit() {
+        // Bonk sound
+        this.playTone(150, 0.1, 'triangle', 0.4);
+        setTimeout(() => this.playTone(100, 0.05, 'square', 0.3), 50);
+    }
+    
+    miss() {
+        // Disappointed whoosh
+        this.playTone(200, 0.2, 'sine', 0.15);
+    }
+    
+    takeDamage() {
+        // Ouch - descending tone
+        this.playTone(400, 0.3, 'sawtooth', 0.3);
+        setTimeout(() => this.playTone(200, 0.2, 'triangle', 0.2), 100);
+    }
+    
+    monsterDeath() {
+        // Satisfying defeat sound
+        this.playTone(100, 0.4, 'triangle', 0.4);
+        setTimeout(() => this.playTone(150, 0.2, 'sine', 0.3), 200);
+        setTimeout(() => this.playTone(200, 0.1, 'sine', 0.2), 400);
+    }
+    
+    levelUp() {
+        // Triumphant ascending tones
+        const notes = [262, 330, 392, 523]; // C, E, G, C octave
+        notes.forEach((freq, i) => {
+            setTimeout(() => this.playTone(freq, 0.3, 'triangle', 0.4), i * 100);
+        });
+    }
+    
+    roomAdvance() {
+        // Portal/teleport sound
+        this.playTone(800, 0.2, 'sine', 0.3);
+        setTimeout(() => this.playTone(1200, 0.15, 'triangle', 0.25), 100);
+        setTimeout(() => this.playTone(600, 0.3, 'sine', 0.2), 200);
+    }
+    
+    gameOver() {
+        // Sad descending tones
+        const notes = [400, 350, 300, 200, 150];
+        notes.forEach((freq, i) => {
+            setTimeout(() => this.playTone(freq, 0.4, 'triangle', 0.3), i * 150);
+        });
+    }
+    
+    gameStart() {
+        // Cheerful startup sound
+        this.playTone(523, 0.2, 'sine', 0.3);
+        setTimeout(() => this.playTone(659, 0.2, 'sine', 0.3), 200);
+        setTimeout(() => this.playTone(784, 0.3, 'triangle', 0.4), 400);
+    }
+    
+    footstep() {
+        // Subtle step sound
+        this.playTone(80 + Math.random() * 20, 0.05, 'triangle', 0.1);
+    }
+}
+
 let game;
+let soundManager;
+
 window.addEventListener('load', () => {
+    soundManager = new SoundManager();
     game = new Game();
+    
+    // Enable audio context on first user interaction
+    document.addEventListener('click', () => {
+        if (soundManager.audioContext && soundManager.audioContext.state === 'suspended') {
+            soundManager.audioContext.resume();
+        }
+    }, { once: true });
 });
