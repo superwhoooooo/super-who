@@ -83,15 +83,23 @@ class Game {
         if (this.currentRoom === 10) {
             // Clear regular monsters and spawn boss
             this.monsters = [];
-            const bossTypes = ['DragonLord', 'NecromancerKing', 'TrollChieftain', 'ShadowWraith', 'GolemMaster'];
-            const randomBossType = bossTypes[Math.floor(Math.random() * bossTypes.length)];
+            let selectedBossType;
+            
+            if (this.currentLevel === 1) {
+                // Level 1 always spawns NecromancerKing
+                selectedBossType = 'NecromancerKing';
+            } else {
+                // Other levels spawn random bosses
+                const bossTypes = ['DragonLord', 'NecromancerKing', 'TrollChieftain', 'ShadowWraith', 'GolemMaster'];
+                selectedBossType = bossTypes[Math.floor(Math.random() * bossTypes.length)];
+            }
             
             // Spawn boss in center of room
             const bossX = this.canvas.width / 2 - 15;
             const bossY = this.canvas.height / 2 - 15;
-            this.monsters.push(new Boss(bossX, bossY, randomBossType, this.currentLevel));
+            this.monsters.push(new Boss(bossX, bossY, selectedBossType, this.currentLevel));
             
-            this.addMessage(`BOSS ROOM! Level ${this.currentLevel} ${randomBossType} awaits!`);
+            this.addMessage(`BOSS ROOM! Level ${this.currentLevel} ${selectedBossType} awaits!`);
         } else {
             this.addMessage(`L${this.currentLevel} Room ${this.currentRoom}/10 - ${this.monsters.length} monsters await!`);
         }
@@ -407,7 +415,7 @@ class Player {
                 
                 if (distance < attackRange) {
                     const damage = this.weapons.sword.getDamage();
-                    monster.takeDamage(damage);
+                    monster.takeDamage(damage, 'sword');
                     game.addMessage(`Hit ${monster.type} with ${this.weapons.sword.name} for ${damage} damage!`);
                     soundManager.hit();
                     hit = true;
@@ -643,7 +651,7 @@ class Monster {
         }
     }
     
-    takeDamage(damage) {
+    takeDamage(damage, weaponType = null) {
         this.health -= damage;
         if (this.health < 0) this.health = 0;
     }
@@ -789,35 +797,35 @@ class Boss {
     getBossStats(type) {
         const bossStats = {
             DragonLord: { 
-                health: 300, 
+                health: 200, 
                 damage: 25, 
                 exp: 200, 
                 color: '#8B0000',
                 special: 'fireBreath'
             },
             NecromancerKing: { 
-                health: 250, 
+                health: 170, 
                 damage: 20, 
                 exp: 180, 
                 color: '#4B0082',
                 special: 'summonMinions'
             },
             TrollChieftain: { 
-                health: 400, 
+                health: 250, 
                 damage: 30, 
                 exp: 220, 
                 color: '#228B22',
                 special: 'groundPound'
             },
             ShadowWraith: { 
-                health: 200, 
+                health: 140, 
                 damage: 35, 
                 exp: 190, 
                 color: '#2F2F2F',
                 special: 'shadowStrike'
             },
             GolemMaster: { 
-                health: 450, 
+                health: 300, 
                 damage: 28, 
                 exp: 250, 
                 color: '#696969',
@@ -926,7 +934,13 @@ class Boss {
         }
     }
     
-    takeDamage(damage) {
+    takeDamage(damage, weaponType = null) {
+        // NecromancerKing is immune to sword attacks
+        if (this.type === 'NecromancerKing' && weaponType === 'sword') {
+            game.addMessage(`${this.type} is immune to sword attacks! Use your gun!`);
+            return;
+        }
+        
         this.health -= damage;
         if (this.health < 0) this.health = 0;
     }
@@ -1194,7 +1208,7 @@ class Bullet {
             const distance = Math.sqrt(dx * dx + dy * dy);
             
             if (distance < 15) {
-                monster.takeDamage(this.damage);
+                monster.takeDamage(this.damage, 'gun');
                 game.addMessage(`Bullet hit ${monster.type} for ${this.damage} damage!`);
                 soundManager.hit();
                 this.active = false;
