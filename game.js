@@ -203,12 +203,12 @@ class Player {
         if (this.attackCooldown > 0) return;
         
         if (this.currentWeapon === 'gun') {
-            // Shoot bullet in movement direction
+            // Shoot bullet in opposite direction of movement (facing direction)
             const bullet = new Bullet(
                 this.x + this.width / 2,
                 this.y + this.height / 2,
-                this.lastDirection.x,
-                this.lastDirection.y,
+                -this.lastDirection.x,
+                -this.lastDirection.y,
                 this.weapons.gun.getDamage()
             );
             game.bullets.push(bullet);
