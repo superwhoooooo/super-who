@@ -494,16 +494,10 @@ class Player {
         const centerY = this.y + this.height / 2;
         const isHurt = this.invulnerable > 0;
         
-        // Eyes
-        ctx.fillStyle = '#ffffff';
+        // Eyes (black)
+        ctx.fillStyle = '#000000';
         ctx.fillRect(centerX - 6, centerY - 4, 3, 3);
         ctx.fillRect(centerX + 3, centerY - 4, 3, 3);
-        
-        // Eye pupils
-        ctx.fillStyle = '#000000';
-        const pupilOffset = isHurt ? 1 : 0;
-        ctx.fillRect(centerX - 5 + pupilOffset, centerY - 3 + pupilOffset, 1, 1);
-        ctx.fillRect(centerX + 4 + pupilOffset, centerY - 3 + pupilOffset, 1, 1);
         
         // Mouth - changes based on state
         ctx.fillStyle = isHurt ? '#ff0000' : '#ffffff';
@@ -527,10 +521,18 @@ class Player {
     }
     
     render(ctx) {
-        ctx.fillStyle = this.invulnerable > 0 ? '#ff6666' : '#3498db';
+        ctx.fillStyle = this.invulnerable > 0 ? '#ffff99' : '#ffff00';
         ctx.fillRect(this.x, this.y, this.width, this.height);
         
         this.renderFace(ctx);
+        
+        // Draw red "?" on chest
+        const centerX = this.x + this.width / 2;
+        const centerY = this.y + this.height / 2;
+        ctx.fillStyle = '#ff0000';
+        ctx.font = '10px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText('?', centerX, centerY + 4);
         
         if (this.attackCooldown > 15) {
             ctx.strokeStyle = '#ffffff';
