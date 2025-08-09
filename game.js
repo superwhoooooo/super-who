@@ -239,7 +239,7 @@ class Game {
             this.ctx.fillStyle = '#f39c12';
             this.ctx.font = '42px Courier New';
             this.ctx.textAlign = 'center';
-            this.ctx.fillText('DUNGEON CRAWLER', this.canvas.width / 2, this.canvas.height / 2 - 100);
+            this.ctx.fillText('SUPERWHO?!', this.canvas.width / 2, this.canvas.height / 2 - 100);
             
             this.ctx.fillStyle = '#3498db';
             this.ctx.font = '18px Courier New';
