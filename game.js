@@ -138,6 +138,32 @@ class Game {
         log.innerHTML = this.messages.map(msg => `<div>${msg}</div>`).join('');
     }
     
+    renderBackground() {
+        // Base dark background
+        this.ctx.fillStyle = '#1a1a1a';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Add atmospheric gradient
+        const gradient = this.ctx.createRadialGradient(
+            this.canvas.width / 2, this.canvas.height / 2, 0,
+            this.canvas.width / 2, this.canvas.height / 2, this.canvas.width / 2
+        );
+        gradient.addColorStop(0, 'rgba(30, 30, 30, 0.1)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
+        this.ctx.fillStyle = gradient;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Add stone texture pattern
+        for (let x = 0; x < this.canvas.width; x += 10) {
+            for (let y = 0; y < this.canvas.height; y += 10) {
+                if (Math.random() < 0.02) {
+                    this.ctx.fillStyle = 'rgba(100, 100, 100, 0.1)';
+                    this.ctx.fillRect(x, y, 1, 1);
+                }
+            }
+        }
+    }
+    
     update() {
         if (this.gameState !== 'playing') return;
         
@@ -195,8 +221,24 @@ class Game {
     render() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        this.ctx.fillStyle = '#1a1a1a';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        // Enhanced background with pattern
+        this.renderBackground();
+        
+        // Add subtle grid pattern
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+        this.ctx.lineWidth = 1;
+        for (let x = 0; x < this.canvas.width; x += 50) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.canvas.height);
+            this.ctx.stroke();
+        }
+        for (let y = 0; y < this.canvas.height; y += 50) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(this.canvas.width, y);
+            this.ctx.stroke();
+        }
         
         this.monsters.forEach(monster => monster.render(this.ctx));
         this.bullets.forEach(bullet => bullet.render(this.ctx));
@@ -563,27 +605,56 @@ class Player {
     }
     
     render(ctx) {
-        ctx.fillStyle = this.invulnerable > 0 ? '#ffff99' : '#ffff00';
+        const centerX = this.x + this.width / 2;
+        const centerY = this.y + this.height / 2;
+        
+        // Main body with gradient effect
+        const bodyColor = this.invulnerable > 0 ? '#ffff99' : '#ffff00';
+        ctx.fillStyle = bodyColor;
         ctx.fillRect(this.x, this.y, this.width, this.height);
+        
+        // Add body shading
+        ctx.fillStyle = this.invulnerable > 0 ? '#ffff77' : '#ffdd00';
+        ctx.fillRect(this.x + 1, this.y + 1, this.width - 2, 2); // Top highlight
+        ctx.fillRect(this.x + 1, this.y + 1, 2, this.height - 2); // Left highlight
+        
+        // Body shadow
+        ctx.fillStyle = this.invulnerable > 0 ? '#dddd55' : '#ccbb00';
+        ctx.fillRect(this.x + this.width - 2, this.y + 2, 2, this.height - 2); // Right shadow
+        ctx.fillRect(this.x + 2, this.y + this.height - 2, this.width - 2, 2); // Bottom shadow
+        
+        // Belt/armor details
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(this.x + 2, centerY + 1, this.width - 4, 2);
+        ctx.fillRect(centerX - 1, centerY, 2, 4);
         
         this.renderFace(ctx);
         
-        // Draw red "?" on chest
-        const centerX = this.x + this.width / 2;
-        const centerY = this.y + this.height / 2;
+        // Draw red "?" on chest with better styling
         ctx.fillStyle = '#ff0000';
-        ctx.font = '10px Courier New';
+        ctx.font = 'bold 10px Courier New';
         ctx.textAlign = 'center';
-        ctx.fillText('?', centerX, centerY + 8);
+        ctx.fillText('?', centerX, centerY + 7);
+        
+        // Add question mark shadow
+        ctx.fillStyle = '#aa0000';
+        ctx.fillText('?', centerX + 1, centerY + 8);
         
         // Draw weapon in hand
         this.renderWeapon(ctx, centerX, centerY);
         
+        // Enhanced attack animation
         if (this.attackCooldown > 15) {
             ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.arc(this.x + this.width/2, this.y + this.height/2, 30, 0, 2 * Math.PI);
+            ctx.arc(this.x + this.width/2, this.y + this.height/2, 25 + (20 - this.attackCooldown), 0, 2 * Math.PI);
+            ctx.stroke();
+            
+            ctx.strokeStyle = '#ffff00';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(this.x + this.width/2, this.y + this.height/2, 28 + (20 - this.attackCooldown), 0, 2 * Math.PI);
             ctx.stroke();
         }
     }
@@ -758,17 +829,107 @@ class Monster {
     }
     
     render(ctx) {
+        // Main body with shading
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
         
+        // Add highlight and shadow for 3D effect
+        const highlightColor = this.getBrighterColor(this.color);
+        const shadowColor = this.getDarkerColor(this.color);
+        
+        ctx.fillStyle = highlightColor;
+        ctx.fillRect(this.x + 1, this.y + 1, this.width - 2, 1); // Top highlight
+        ctx.fillRect(this.x + 1, this.y + 1, 1, this.height - 2); // Left highlight
+        
+        ctx.fillStyle = shadowColor;
+        ctx.fillRect(this.x + this.width - 1, this.y + 1, 1, this.height - 1); // Right shadow
+        ctx.fillRect(this.x + 1, this.y + this.height - 1, this.width - 1, 1); // Bottom shadow
+        
+        // Add type-specific details
+        this.renderTypeDetails(ctx);
+        
         this.renderFace(ctx);
         
-        const healthBarWidth = this.width;
+        // Enhanced health bar
+        const healthBarWidth = this.width + 4;
         const healthPercent = this.health / this.maxHealth;
+        
+        // Health bar background with border
+        ctx.fillStyle = '#222';
+        ctx.fillRect(this.x - 2, this.y - 10, healthBarWidth, 6);
         ctx.fillStyle = '#555';
-        ctx.fillRect(this.x, this.y - 8, healthBarWidth, 4);
-        ctx.fillStyle = '#e74c3c';
-        ctx.fillRect(this.x, this.y - 8, healthBarWidth * healthPercent, 4);
+        ctx.fillRect(this.x - 1, this.y - 9, healthBarWidth - 2, 4);
+        
+        // Health bar fill with gradient effect
+        if (healthPercent > 0.6) {
+            ctx.fillStyle = '#2ecc71';
+        } else if (healthPercent > 0.3) {
+            ctx.fillStyle = '#f39c12';
+        } else {
+            ctx.fillStyle = '#e74c3c';
+        }
+        ctx.fillRect(this.x - 1, this.y - 9, (healthBarWidth - 2) * healthPercent, 4);
+        
+        // Health bar highlight
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.fillRect(this.x - 1, this.y - 9, (healthBarWidth - 2) * healthPercent, 1);
+    }
+    
+    getBrighterColor(color) {
+        const colors = {
+            '#27ae60': '#2ecc71',
+            '#e74c3c': '#ff6b6b',
+            '#ecf0f1': '#ffffff',
+            '#8e44ad': '#9b59b6'
+        };
+        return colors[color] || color;
+    }
+    
+    getDarkerColor(color) {
+        const colors = {
+            '#27ae60': '#1e8449',
+            '#e74c3c': '#c0392b',
+            '#ecf0f1': '#bdc3c7',
+            '#8e44ad': '#7d3c98'
+        };
+        return colors[color] || color;
+    }
+    
+    renderTypeDetails(ctx) {
+        const centerX = this.x + this.width / 2;
+        const centerY = this.y + this.height / 2;
+        
+        switch(this.type) {
+            case 'goblin':
+                // Add goblin spikes
+                ctx.fillStyle = '#2c6e2f';
+                ctx.fillRect(centerX - 1, this.y - 1, 2, 2);
+                ctx.fillRect(this.x - 1, centerY - 1, 2, 2);
+                ctx.fillRect(this.x + this.width - 1, centerY - 1, 2, 2);
+                break;
+                
+            case 'orc':
+                // Add armor plating
+                ctx.fillStyle = '#8b4513';
+                ctx.fillRect(this.x + 2, this.y + 2, this.width - 4, 2);
+                ctx.fillRect(this.x + 2, this.y + this.height - 4, this.width - 4, 2);
+                break;
+                
+            case 'skeleton':
+                // Add bone details
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(centerX - 2, this.y + 2, 4, 1);
+                ctx.fillRect(centerX - 2, this.y + this.height - 3, 4, 1);
+                break;
+                
+            case 'troll':
+                // Add troll bumps/warts
+                ctx.fillStyle = '#654321';
+                ctx.fillRect(this.x + 1, this.y + 3, 1, 1);
+                ctx.fillRect(this.x + this.width - 2, this.y + 5, 1, 1);
+                ctx.fillRect(centerX, this.y + this.height - 4, 1, 1);
+                break;
+        }
     }
 }
 
@@ -1057,24 +1218,138 @@ class Boss {
     }
     
     render(ctx) {
+        // Enhanced boss body with multiple layers
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
         
+        // Add boss-specific body enhancements
+        this.renderBossDetails(ctx);
+        
+        // Add shading and highlights for 3D effect
+        const highlightColor = this.getBossHighlightColor();
+        const shadowColor = this.getBossShadowColor();
+        
+        ctx.fillStyle = highlightColor;
+        ctx.fillRect(this.x + 2, this.y + 2, this.width - 4, 2); // Top highlight
+        ctx.fillRect(this.x + 2, this.y + 2, 2, this.height - 4); // Left highlight
+        
+        ctx.fillStyle = shadowColor;
+        ctx.fillRect(this.x + this.width - 2, this.y + 2, 2, this.height - 2); // Right shadow
+        ctx.fillRect(this.x + 2, this.y + this.height - 2, this.width - 2, 2); // Bottom shadow
+        
         this.renderFace(ctx);
         
-        // Boss health bar (larger and more prominent)
-        const healthBarWidth = this.width + 10;
+        // Enhanced boss health bar with animations
+        const healthBarWidth = this.width + 16;
         const healthPercent = this.health / this.maxHealth;
-        ctx.fillStyle = '#333';
-        ctx.fillRect(this.x - 5, this.y - 15, healthBarWidth, 6);
-        ctx.fillStyle = '#FF6B6B';
-        ctx.fillRect(this.x - 5, this.y - 15, healthBarWidth * healthPercent, 6);
+        const barX = this.x - 8;
+        const barY = this.y - 20;
         
-        // Boss name above health bar
+        // Health bar border
+        ctx.fillStyle = '#000';
+        ctx.fillRect(barX - 1, barY - 1, healthBarWidth + 2, 10);
+        
+        // Health bar background
+        ctx.fillStyle = '#333';
+        ctx.fillRect(barX, barY, healthBarWidth, 8);
+        
+        // Health bar fill with color based on health
+        if (healthPercent > 0.7) {
+            ctx.fillStyle = '#e74c3c';
+        } else if (healthPercent > 0.4) {
+            ctx.fillStyle = '#f39c12';
+        } else {
+            ctx.fillStyle = '#c0392b';
+        }
+        ctx.fillRect(barX, barY, healthBarWidth * healthPercent, 8);
+        
+        // Health bar glow effect
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.fillRect(barX, barY, healthBarWidth * healthPercent, 2);
+        
+        // Pulsing effect for low health
+        if (healthPercent < 0.3) {
+            const pulse = Math.sin(Date.now() * 0.01) * 0.3 + 0.7;
+            ctx.fillStyle = `rgba(255, 0, 0, ${pulse * 0.5})`;
+            ctx.fillRect(barX - 2, barY - 2, healthBarWidth + 4, 12);
+        }
+        
+        // Boss name with enhanced styling
         ctx.fillStyle = '#FFD700';
-        ctx.font = '10px Courier New';
+        ctx.font = 'bold 12px Courier New';
         ctx.textAlign = 'center';
-        ctx.fillText(this.type, this.x + this.width/2, this.y - 18);
+        ctx.strokeStyle = '#8B4513';
+        ctx.lineWidth = 2;
+        ctx.strokeText(this.type, this.x + this.width/2, this.y - 25);
+        ctx.fillText(this.type, this.x + this.width/2, this.y - 25);
+    }
+    
+    renderBossDetails(ctx) {
+        switch(this.type) {
+            case 'DragonLord':
+                // Dragon scales
+                ctx.fillStyle = '#A0522D';
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 2; j++) {
+                        ctx.fillRect(this.x + 5 + i * 7, this.y + 8 + j * 7, 5, 5);
+                    }
+                }
+                break;
+                
+            case 'NecromancerKing':
+                // Dark aura effect
+                ctx.fillStyle = 'rgba(75, 0, 130, 0.3)';
+                ctx.fillRect(this.x - 2, this.y - 2, this.width + 4, this.height + 4);
+                // Mystical runes
+                ctx.fillStyle = '#9370DB';
+                ctx.fillRect(this.x + 4, this.y + 12, 3, 3);
+                ctx.fillRect(this.x + 23, this.y + 12, 3, 3);
+                break;
+                
+            case 'TrollChieftain':
+                // Tribal markings
+                ctx.fillStyle = '#FF0000';
+                ctx.fillRect(this.x + 8, this.y + 6, 14, 2);
+                ctx.fillRect(this.x + 8, this.y + 22, 14, 2);
+                break;
+                
+            case 'ShadowWraith':
+                // Ethereal glow
+                const flicker = Math.sin(Date.now() * 0.02) * 0.3 + 0.7;
+                ctx.fillStyle = `rgba(128, 0, 128, ${flicker * 0.4})`;
+                ctx.fillRect(this.x - 3, this.y - 3, this.width + 6, this.height + 6);
+                break;
+                
+            case 'GolemMaster':
+                // Stone cracks
+                ctx.fillStyle = '#2F4F4F';
+                ctx.fillRect(this.x + 6, this.y + 4, 18, 1);
+                ctx.fillRect(this.x + 12, this.y + 4, 1, 22);
+                ctx.fillRect(this.x + 4, this.y + 18, 22, 1);
+                break;
+        }
+    }
+    
+    getBossHighlightColor() {
+        const colors = {
+            '#8B0000': '#CD5C5C',
+            '#4B0082': '#8A2BE2',
+            '#228B22': '#32CD32',
+            '#2F2F2F': '#696969',
+            '#696969': '#A9A9A9'
+        };
+        return colors[this.color] || this.color;
+    }
+    
+    getBossShadowColor() {
+        const colors = {
+            '#8B0000': '#4B0000',
+            '#4B0082': '#2F004F',
+            '#228B22': '#006400',
+            '#2F2F2F': '#000000',
+            '#696969': '#2F2F2F'
+        };
+        return colors[this.color] || this.color;
     }
 }
 
@@ -1219,8 +1494,24 @@ class Bullet {
     render(ctx) {
         if (!this.active) return;
         
+        // Enhanced bullet with glow effect
         ctx.fillStyle = '#ffff00';
         ctx.fillRect(this.x - this.width/2, this.y - this.height/2, this.width, this.height);
+        
+        // Add bullet glow
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
+        ctx.fillRect(this.x - this.width/2 - 1, this.y - this.height/2 - 1, this.width + 2, this.height + 2);
+        
+        // Add bullet trail effect
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
+        const trailX = this.x - this.dirX * 8;
+        const trailY = this.y - this.dirY * 8;
+        ctx.fillRect(trailX - 1, trailY - 1, 2, 2);
+        
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.1)';
+        const trail2X = this.x - this.dirX * 16;
+        const trail2Y = this.y - this.dirY * 16;
+        ctx.fillRect(trail2X, trail2Y, 1, 1);
     }
 }
 
