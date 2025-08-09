@@ -722,11 +722,11 @@ class Player {
         ctx.fillStyle = '#ff0000';
         ctx.font = 'bold 10px Courier New';
         ctx.textAlign = 'center';
-        ctx.fillText('?', centerX, centerY + 7);
+        ctx.fillText('?', centerX, centerY + 10);
         
         // Add question mark shadow
         ctx.fillStyle = '#aa0000';
-        ctx.fillText('?', centerX + 1, centerY + 8);
+        ctx.fillText('?', centerX + 1, centerY + 11);
         
         // Draw weapon in hand
         this.renderWeapon(ctx, centerX, centerY);
