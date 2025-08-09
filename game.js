@@ -80,7 +80,7 @@ class Game {
         }
         
         // Special boss room handling
-        if (this.currentRoom === 15) {
+        if (this.currentRoom === 10) {
             // Clear regular monsters and spawn boss
             this.monsters = [];
             const bossTypes = ['DragonLord', 'NecromancerKing', 'TrollChieftain', 'ShadowWraith', 'GolemMaster'];
@@ -93,7 +93,7 @@ class Game {
             
             this.addMessage(`BOSS ROOM! Level ${this.currentLevel} ${randomBossType} awaits!`);
         } else {
-            this.addMessage(`L${this.currentLevel} Room ${this.currentRoom}/15 - ${this.monsters.length} monsters await!`);
+            this.addMessage(`L${this.currentLevel} Room ${this.currentRoom}/10 - ${this.monsters.length} monsters await!`);
         }
     }
     
@@ -168,7 +168,7 @@ class Game {
         // Check if player walks into entrance when room is clear
         if (this.monsters.length === 0 && this.player.y > this.canvas.height - 60 && 
             this.player.x > this.canvas.width / 2 - 50 && this.player.x < this.canvas.width / 2 + 30) {
-            if (this.currentRoom >= 15) {
+            if (this.currentRoom >= 10) {
                 this.nextLevel();
             } else {
                 this.nextRoom();
@@ -196,7 +196,7 @@ class Game {
         
         // Draw entrance at bottom when room is clear
         if (this.monsters.length === 0 && this.gameState === 'playing') {
-            if (this.currentRoom >= 15) {
+            if (this.currentRoom >= 10) {
                 // Level completion entrance
                 this.ctx.fillStyle = '#9932CC';
                 this.ctx.fillRect(this.canvas.width / 2 - 50, this.canvas.height - 40, 100, 40);
@@ -274,7 +274,7 @@ class Game {
             
             this.ctx.fillStyle = '#ffffff';
             this.ctx.font = '24px Courier New';
-            this.ctx.fillText(`Level ${this.currentLevel}, Room ${this.currentRoom}/15`, this.canvas.width / 2, this.canvas.height / 2 - 10);
+            this.ctx.fillText(`Level ${this.currentLevel}, Room ${this.currentRoom}/10`, this.canvas.width / 2, this.canvas.height / 2 - 10);
             
             this.ctx.fillStyle = '#f39c12';
             this.ctx.font = '20px Courier New';
