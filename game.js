@@ -19,14 +19,18 @@ class Game {
         document.addEventListener('keydown', (e) => {
             this.keys[e.key] = true;
             
-            if (e.key === ' ' || e.key.startsWith('Arrow')) {
+            if (e.key === ' ' || e.key.startsWith('Arrow') || e.key.toLowerCase() === 'r') {
                 e.preventDefault();
             }
             
-            if (e.key === ' ') {
-                this.player.attack(this.monsters);
-            } else if (e.key.toLowerCase() === 'g') {
-                this.player.switchWeapon();
+            if (this.gameState === 'gameOver' && e.key.toLowerCase() === 'r') {
+                this.restart();
+            } else if (this.gameState === 'playing') {
+                if (e.key === ' ') {
+                    this.player.attack(this.monsters);
+                } else if (e.key.toLowerCase() === 'g') {
+                    this.player.switchWeapon();
+                }
             }
         });
         
@@ -106,7 +110,7 @@ class Game {
         
         if (this.player.health <= 0) {
             this.gameState = 'gameOver';
-            this.addMessage('Game Over! Refresh to restart.');
+            this.addMessage('Game Over! Press R to restart.');
         }
         
         this.player.updateUI();
@@ -139,6 +143,39 @@ class Game {
             this.ctx.font = '12px Courier New';
             this.ctx.fillText('Walk into entrance', this.canvas.width / 2, this.canvas.height - 50);
         }
+        
+        // Draw game over screen
+        if (this.gameState === 'gameOver') {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            this.ctx.fillStyle = '#e74c3c';
+            this.ctx.font = '48px Courier New';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('GAME OVER', this.canvas.width / 2, this.canvas.height / 2 - 60);
+            
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.font = '24px Courier New';
+            this.ctx.fillText(`You reached room ${this.currentRoom}`, this.canvas.width / 2, this.canvas.height / 2 - 10);
+            
+            this.ctx.fillStyle = '#f39c12';
+            this.ctx.font = '20px Courier New';
+            this.ctx.fillText('Press R to restart', this.canvas.width / 2, this.canvas.height / 2 + 30);
+        }
+    }
+    
+    restart() {
+        this.player = new Player(300, 50);
+        this.currentRoom = 1;
+        this.monsters = [];
+        this.bullets = [];
+        this.gameState = 'playing';
+        this.messages = [];
+        this.generateRoom();
+        this.addMessage('New game started!');
+        document.getElementById('room').textContent = this.currentRoom;
+        this.player.updateUI();
+        this.player.updateWeaponUI();
     }
     
     gameLoop() {
