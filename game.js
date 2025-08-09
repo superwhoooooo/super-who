@@ -50,10 +50,10 @@ class Game {
         this.monsters = [];
         
         // Progressive difficulty - more monsters and stronger types as rooms increase
-        const baseMonsterCount = 2;
-        const roomMultiplier = Math.floor((this.currentRoom - 1) / 3); // Every 3 rooms add +1 monster
-        const randomVariation = Math.floor(Math.random() * 2); // 0-1 random monsters
-        const monsterCount = Math.min(baseMonsterCount + roomMultiplier + randomVariation, 8); // Cap at 8 monsters
+        const baseMonsterCount = 4; // Increased from 2 to 4
+        const roomMultiplier = Math.floor((this.currentRoom - 1) / 2); // Every 2 rooms add +1 monster (was every 3)
+        const randomVariation = Math.floor(Math.random() * 3) + 1; // 1-3 random monsters (was 0-1)
+        const monsterCount = Math.min(baseMonsterCount + roomMultiplier + randomVariation, 12); // Cap at 12 monsters (was 8)
         
         for (let i = 0; i < monsterCount; i++) {
             const x = Math.random() * (this.canvas.width - 60) + 30;
