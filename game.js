@@ -2,7 +2,7 @@ class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
-        this.player = new Player(300, 300);
+        this.player = new Player(300, 50);
         this.currentRoom = 1;
         this.monsters = [];
         this.weapons = [];
@@ -22,8 +22,6 @@ class Game {
             if (e.key === ' ') {
                 e.preventDefault();
                 this.player.attack(this.monsters);
-            } else if (e.key.toLowerCase() === 'e' && this.monsters.length === 0) {
-                this.nextRoom();
             } else if (e.key.toLowerCase() === 'r') {
                 this.player.pickupWeapon(this.weapons);
             }
@@ -95,6 +93,12 @@ class Game {
             return true;
         });
         
+        // Check if player walks into entrance when room is clear
+        if (this.monsters.length === 0 && this.player.y > this.canvas.height - 60 && 
+            this.player.x > this.canvas.width / 2 - 50 && this.player.x < this.canvas.width / 2 + 30) {
+            this.nextRoom();
+        }
+        
         if (this.player.health <= 0) {
             this.gameState = 'gameOver';
             this.addMessage('Game Over! Refresh to restart.');
@@ -113,11 +117,22 @@ class Game {
         this.monsters.forEach(monster => monster.render(this.ctx));
         this.player.render(this.ctx);
         
+        // Draw entrance at bottom when room is clear
         if (this.monsters.length === 0 && this.gameState === 'playing') {
+            this.ctx.fillStyle = '#2ecc71';
+            this.ctx.fillRect(this.canvas.width / 2 - 50, this.canvas.height - 40, 100, 40);
+            
+            this.ctx.fillStyle = '#1a1a1a';
+            this.ctx.fillRect(this.canvas.width / 2 - 45, this.canvas.height - 35, 90, 30);
+            
             this.ctx.fillStyle = '#f39c12';
-            this.ctx.font = '20px Courier New';
+            this.ctx.font = '14px Courier New';
             this.ctx.textAlign = 'center';
-            this.ctx.fillText('Room Clear! Press E to advance', this.canvas.width / 2, 50);
+            this.ctx.fillText('NEXT ROOM', this.canvas.width / 2, this.canvas.height - 18);
+            
+            this.ctx.fillStyle = '#27ae60';
+            this.ctx.font = '12px Courier New';
+            this.ctx.fillText('Walk into entrance', this.canvas.width / 2, this.canvas.height - 50);
         }
     }
     
