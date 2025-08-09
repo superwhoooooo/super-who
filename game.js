@@ -419,7 +419,7 @@ class Player {
         this.exp = 0;
         this.expToNext = 100;
         this.weapons = {
-            sword: new WeaponType('Battle Sword', 15, 25),
+            sword: new WeaponType('Battle Sword', 22, 32),
             gun: new WeaponType('Pistol', 20, 30),
             staff: new WeaponType('Wizard Staff', 18, 28)
         };
