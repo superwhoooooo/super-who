@@ -1665,8 +1665,10 @@ class BouncingBullet {
             const distance = Math.sqrt(dx * dx + dy * dy);
             
             if (distance < 15) {
-                monster.takeDamage(this.damage, 'staff');
-                game.addMessage(`Magic bolt hit ${monster.type} for ${this.damage} damage!`);
+                const actualDamage = this.bounces > 0 ? this.damage * 2 : this.damage;
+                monster.takeDamage(actualDamage, 'staff');
+                const bounceText = this.bounces > 0 ? " (bounced 2x damage!)" : "";
+                game.addMessage(`Magic bolt hit ${monster.type} for ${actualDamage} damage!${bounceText}`);
                 soundManager.hit();
                 this.active = false;
             }
