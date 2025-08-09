@@ -19,8 +19,11 @@ class Game {
         document.addEventListener('keydown', (e) => {
             this.keys[e.key] = true;
             
-            if (e.key === ' ') {
+            if (e.key === ' ' || e.key.startsWith('Arrow')) {
                 e.preventDefault();
+            }
+            
+            if (e.key === ' ') {
                 this.player.attack(this.monsters);
             } else if (e.key.toLowerCase() === 'g') {
                 this.player.switchWeapon();
