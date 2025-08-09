@@ -1473,7 +1473,7 @@ class BossProjectile {
         this.x += this.dirX * this.speed;
         this.y += this.dirY * this.speed;
         
-        if (this.x < 0 || this.x > 600 || this.y < 0 || this.y > 600) {
+        if (this.x < 0 || this.x > 800 || this.y < 0 || this.y > 600) {
             this.active = false;
         }
     }
@@ -1571,7 +1571,7 @@ class Bullet {
         this.y += this.dirY * this.speed;
         
         // Remove bullet if it goes off screen
-        if (this.x < 0 || this.x > 600 || this.y < 0 || this.y > 600) {
+        if (this.x < 0 || this.x > 800 || this.y < 0 || this.y > 600) {
             this.active = false;
         }
     }
@@ -1638,10 +1638,10 @@ class BouncingBullet {
         
         // Bounce off walls if haven't used all bounces
         if (this.bounces < this.maxBounces) {
-            if (this.x <= 0 || this.x >= 600) {
+            if (this.x <= 0 || this.x >= 800) {
                 this.dirX = -this.dirX;
                 this.bounces++;
-                this.x = Math.max(0, Math.min(600, this.x));
+                this.x = Math.max(0, Math.min(800, this.x));
             }
             if (this.y <= 0 || this.y >= 600) {
                 this.dirY = -this.dirY;
@@ -1650,7 +1650,7 @@ class BouncingBullet {
             }
         } else {
             // Remove bullet if it goes off screen after bouncing
-            if (this.x < 0 || this.x > 600 || this.y < 0 || this.y > 600) {
+            if (this.x < 0 || this.x > 800 || this.y < 0 || this.y > 600) {
                 this.active = false;
             }
         }
