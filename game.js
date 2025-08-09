@@ -55,7 +55,10 @@ class Game {
         const roomMultiplier = Math.floor((this.currentRoom - 1) / 3); // Every 3 rooms add +1 monster (reduced from 2 to 3)
         const levelMultiplier = Math.floor((this.currentLevel - 1) / 3); // Every 3 levels add +1 monster (reduced from 2 to 3)
         const randomVariation = Math.floor(Math.random() * 2) + 1; // 1-2 random monsters (reduced from 1-3)
-        const monsterCount = Math.min(baseMonsterCount + roomMultiplier + levelMultiplier + randomVariation, 12); // Cap reduced to 12
+        let monsterCount = Math.min(baseMonsterCount + roomMultiplier + levelMultiplier + randomVariation, 12); // Cap reduced to 12
+        
+        // Apply shadow essence monster reduction
+        monsterCount = Math.max(1, monsterCount - this.player.monsterReduction); // Always spawn at least 1 monster
         
         for (let i = 0; i < monsterCount; i++) {
             const x = Math.random() * (this.canvas.width - 60) + 30;
@@ -86,8 +89,14 @@ class Game {
             let selectedBossType;
             
             if (this.currentLevel === 1) {
-                // Level 1 always spawns NecromancerKing
+                // Level 1 always spawns ShadowWraith
+                selectedBossType = 'ShadowWraith';
+            } else if (this.currentLevel === 2) {
+                // Level 2 always spawns NecromancerKing
                 selectedBossType = 'NecromancerKing';
+            } else if (this.currentLevel === 3) {
+                // Level 3 always spawns DragonLord
+                selectedBossType = 'DragonLord';
             } else {
                 // Other levels spawn random bosses
                 const bossTypes = ['DragonLord', 'NecromancerKing', 'TrollChieftain', 'ShadowWraith', 'GolemMaster'];
@@ -194,6 +203,14 @@ class Game {
                 this.player.gainExp(monster.expReward);
                 this.addMessage(`Defeated ${monster.type}! +${monster.expReward} XP`);
                 soundManager.monsterDeath();
+                
+                // Shadow Wraith special drop: 10% chance for monster reduction
+                if (monster.type === 'ShadowWraith' && Math.random() < 0.1) {
+                    this.player.monsterReduction += 1;
+                    this.addMessage('Shadow essence absorbed! Fewer monsters will spawn in future rooms.');
+                    soundManager.victory(); // Special sound for rare drop
+                }
+                
                 return false;
             }
             return true;
@@ -394,6 +411,7 @@ class Player {
         this.attackCooldown = 0;
         this.invulnerable = 0;
         this.lastDirection = { x: 0, y: -1 }; // Default facing up
+        this.monsterReduction = 0; // Reduces monster spawns per room
     }
     
     update(keys, canvas) {
