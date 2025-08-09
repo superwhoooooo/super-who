@@ -5,6 +5,7 @@ class Game {
         this.player = new Player(300, 50);
         this.currentRoom = 1;
         this.monsters = [];
+        this.bullets = [];
         this.keys = {};
         this.gameState = 'playing';
         this.messages = [];
@@ -76,6 +77,15 @@ class Game {
             monster.checkCollision(this.player);
         });
         
+        // Update bullets
+        this.bullets.forEach(bullet => {
+            bullet.update();
+            bullet.checkCollision(this.monsters);
+        });
+        
+        // Remove dead bullets
+        this.bullets = this.bullets.filter(bullet => bullet.active);
+        
         this.monsters = this.monsters.filter(monster => {
             if (monster.health <= 0) {
                 this.player.gainExp(monster.expReward);
@@ -106,6 +116,7 @@ class Game {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
         this.monsters.forEach(monster => monster.render(this.ctx));
+        this.bullets.forEach(bullet => bullet.render(this.ctx));
         this.player.render(this.ctx);
         
         // Draw entrance at bottom when room is clear
@@ -155,41 +166,73 @@ class Player {
         this.currentWeapon = 'sword';
         this.attackCooldown = 0;
         this.invulnerable = 0;
+        this.lastDirection = { x: 0, y: -1 }; // Default facing up
     }
     
     update(keys, canvas) {
-        if (keys['ArrowUp'] && this.y > 0) this.y -= this.speed;
-        if (keys['ArrowDown'] && this.y < canvas.height - this.height) this.y += this.speed;
-        if (keys['ArrowLeft'] && this.x > 0) this.x -= this.speed;
-        if (keys['ArrowRight'] && this.x < canvas.width - this.width) this.x += this.speed;
+        let moved = false;
+        if (keys['ArrowUp'] && this.y > 0) {
+            this.y -= this.speed;
+            this.lastDirection = { x: 0, y: -1 };
+            moved = true;
+        }
+        if (keys['ArrowDown'] && this.y < canvas.height - this.height) {
+            this.y += this.speed;
+            this.lastDirection = { x: 0, y: 1 };
+            moved = true;
+        }
+        if (keys['ArrowLeft'] && this.x > 0) {
+            this.x -= this.speed;
+            this.lastDirection = { x: -1, y: 0 };
+            moved = true;
+        }
+        if (keys['ArrowRight'] && this.x < canvas.width - this.width) {
+            this.x += this.speed;
+            this.lastDirection = { x: 1, y: 0 };
+            moved = true;
+        }
         
         if (this.attackCooldown > 0) this.attackCooldown--;
         if (this.invulnerable > 0) this.invulnerable--;
     }
     
     attack(monsters) {
-        if (this.attackCooldown > 0 || monsters.length === 0) return;
+        if (this.attackCooldown > 0) return;
         
-        // Find nearest enemy
-        let nearestMonster = null;
-        let nearestDistance = Infinity;
-        
-        monsters.forEach(monster => {
-            const dx = monster.x - this.x;
-            const dy = monster.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+        if (this.currentWeapon === 'gun') {
+            // Shoot bullet in movement direction
+            const bullet = new Bullet(
+                this.x + this.width / 2,
+                this.y + this.height / 2,
+                this.lastDirection.x,
+                this.lastDirection.y,
+                this.weapons.gun.getDamage()
+            );
+            game.bullets.push(bullet);
+            game.addMessage(`Fired ${this.weapons.gun.name}!`);
+        } else {
+            // Sword: short range melee attack
+            if (monsters.length === 0) return;
             
-            if (distance < nearestDistance) {
-                nearestDistance = distance;
-                nearestMonster = monster;
+            const attackRange = 35; // Very short range for sword
+            let hit = false;
+            
+            monsters.forEach(monster => {
+                const dx = monster.x - this.x;
+                const dy = monster.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < attackRange) {
+                    const damage = this.weapons.sword.getDamage();
+                    monster.takeDamage(damage);
+                    game.addMessage(`Hit ${monster.type} with ${this.weapons.sword.name} for ${damage} damage!`);
+                    hit = true;
+                }
+            });
+            
+            if (!hit) {
+                game.addMessage('Sword swing missed! Get closer!');
             }
-        });
-        
-        if (nearestMonster) {
-            const weapon = this.weapons[this.currentWeapon];
-            const damage = weapon.getDamage();
-            nearestMonster.takeDamage(damage);
-            game.addMessage(`Hit ${nearestMonster.type} with ${weapon.name} for ${damage} damage!`);
         }
         
         this.attackCooldown = 20;
@@ -400,6 +443,53 @@ class Weapon {
         ctx.fillRect(this.x, this.y, this.width, this.height);
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(this.x + 2, this.y + 2, this.width - 4, this.height - 4);
+    }
+}
+
+class Bullet {
+    constructor(x, y, dirX, dirY, damage) {
+        this.x = x;
+        this.y = y;
+        this.dirX = dirX;
+        this.dirY = dirY;
+        this.speed = 8;
+        this.damage = damage;
+        this.width = 4;
+        this.height = 4;
+        this.active = true;
+    }
+    
+    update() {
+        this.x += this.dirX * this.speed;
+        this.y += this.dirY * this.speed;
+        
+        // Remove bullet if it goes off screen
+        if (this.x < 0 || this.x > 600 || this.y < 0 || this.y > 600) {
+            this.active = false;
+        }
+    }
+    
+    checkCollision(monsters) {
+        if (!this.active) return;
+        
+        monsters.forEach(monster => {
+            const dx = monster.x - this.x;
+            const dy = monster.y - this.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < 15) {
+                monster.takeDamage(this.damage);
+                game.addMessage(`Bullet hit ${monster.type} for ${this.damage} damage!`);
+                this.active = false;
+            }
+        });
+    }
+    
+    render(ctx) {
+        if (!this.active) return;
+        
+        ctx.fillStyle = '#ffff00';
+        ctx.fillRect(this.x - this.width/2, this.y - this.height/2, this.width, this.height);
     }
 }
 
