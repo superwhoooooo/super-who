@@ -532,7 +532,7 @@ class Player {
         ctx.fillStyle = '#ff0000';
         ctx.font = '10px Courier New';
         ctx.textAlign = 'center';
-        ctx.fillText('?', centerX, centerY + 4);
+        ctx.fillText('?', centerX, centerY + 8);
         
         if (this.attackCooldown > 15) {
             ctx.strokeStyle = '#ffffff';
