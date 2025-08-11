@@ -33,6 +33,9 @@ class Game {
                 } else {
                     this.restart();
                 }
+            } else if (this.gameState === 'gameOver' && e.key === ' ') {
+                this.gameState = 'menu';
+                this.addMessage('Returned to main menu.');
             } else if (this.gameState === 'playing') {
                 if (e.key === ' ') {
                     this.player.attack(this.monsters);
@@ -361,6 +364,10 @@ class Game {
             this.ctx.fillStyle = '#f39c12';
             this.ctx.font = '20px Courier New';
             this.ctx.fillText('Press R to restart', this.canvas.width / 2, this.canvas.height / 2 + 30);
+            
+            this.ctx.fillStyle = '#3498db';
+            this.ctx.font = '18px Courier New';
+            this.ctx.fillText('Press SPACE for menu', this.canvas.width / 2, this.canvas.height / 2 + 60);
         }
     }
     
