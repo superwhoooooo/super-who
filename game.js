@@ -7,6 +7,7 @@ class Game {
         this.currentRoom = 1;
         this.monsters = [];
         this.bullets = [];
+        this.particles = [];
         this.keys = {};
         this.gameState = 'menu';
         this.messages = [];
@@ -43,6 +44,8 @@ class Game {
                     this.player.switchWeapon();
                 } else if (e.key.toLowerCase() === 'f') {
                     this.player.freezeEnemies(this.monsters);
+                } else if (e.key.toLowerCase() === 'm') {
+                    soundManager.toggle();
                 }
             }
         });
@@ -158,9 +161,33 @@ class Game {
         log.innerHTML = this.messages.map(msg => `<div>${msg}</div>`).join('');
     }
     
+    createParticles(x, y, type, count = 5) {
+        for (let i = 0; i < count; i++) {
+            this.particles.push(new Particle(x, y, type));
+        }
+    }
+    
     renderBackground() {
         // Base dark background
         this.ctx.fillStyle = '#1a1a1a';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Dynamic lighting around player
+        const time = Date.now() * 0.002;
+        const playerCenterX = this.player.x + this.player.width / 2;
+        const playerCenterY = this.player.y + this.player.height / 2;
+        const lightRadius = 150 + Math.sin(time) * 20; // Flickering torch effect
+        
+        const lightGradient = this.ctx.createRadialGradient(
+            playerCenterX, playerCenterY, 0,
+            playerCenterX, playerCenterY, lightRadius
+        );
+        lightGradient.addColorStop(0, 'rgba(255, 200, 100, 0.3)'); // Warm torch light
+        lightGradient.addColorStop(0.3, 'rgba(255, 150, 50, 0.15)');
+        lightGradient.addColorStop(0.7, 'rgba(100, 50, 0, 0.05)');
+        lightGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        
+        this.ctx.fillStyle = lightGradient;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
         // Add atmospheric gradient
@@ -169,19 +196,34 @@ class Game {
             this.canvas.width / 2, this.canvas.height / 2, this.canvas.width / 2
         );
         gradient.addColorStop(0, 'rgba(30, 30, 30, 0.1)');
-        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
         this.ctx.fillStyle = gradient;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Add stone texture pattern
-        for (let x = 0; x < this.canvas.width; x += 10) {
-            for (let y = 0; y < this.canvas.height; y += 10) {
-                if (Math.random() < 0.02) {
-                    this.ctx.fillStyle = 'rgba(100, 100, 100, 0.1)';
-                    this.ctx.fillRect(x, y, 1, 1);
+        // Enhanced stone texture pattern with subtle animations
+        for (let x = 0; x < this.canvas.width; x += 15) {
+            for (let y = 0; y < this.canvas.height; y += 15) {
+                if (Math.random() < 0.03) {
+                    const alpha = 0.05 + Math.sin(time + x * 0.01 + y * 0.01) * 0.02;
+                    this.ctx.fillStyle = `rgba(120, 120, 120, ${alpha})`;
+                    this.ctx.fillRect(x, y, 2, 2);
                 }
             }
         }
+        
+        // Entrance glow effect at bottom center
+        const entranceX = this.canvas.width / 2;
+        const entranceY = this.canvas.height - 30;
+        const entranceGradient = this.ctx.createRadialGradient(
+            entranceX, entranceY, 0,
+            entranceX, entranceY, 80
+        );
+        entranceGradient.addColorStop(0, 'rgba(0, 255, 100, 0.2)');
+        entranceGradient.addColorStop(0.5, 'rgba(0, 200, 50, 0.1)');
+        entranceGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        
+        this.ctx.fillStyle = entranceGradient;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
     
     update() {
@@ -206,13 +248,18 @@ class Game {
             }
         });
         
-        // Remove dead bullets
+        // Update particles
+        this.particles.forEach(particle => particle.update());
+        
+        // Remove dead bullets and particles
         this.bullets = this.bullets.filter(bullet => bullet.active);
+        this.particles = this.particles.filter(particle => particle.active);
         
         this.monsters = this.monsters.filter(monster => {
             if (monster.health <= 0) {
                 this.player.gainExp(monster.expReward);
                 this.addMessage(`Defeated ${monster.type}! +${monster.expReward} XP`);
+                this.createParticles(monster.x + monster.width/2, monster.y + monster.height/2, 'blood', 12);
                 soundManager.monsterDeath();
                 
                 // Shadow Wraith special drop: 10% chance for monster reduction
@@ -277,6 +324,7 @@ class Game {
         
         this.monsters.forEach(monster => monster.render(this.ctx));
         this.bullets.forEach(bullet => bullet.render(this.ctx));
+        this.particles.forEach(particle => particle.render(this.ctx));
         this.player.render(this.ctx);
         
         // Draw entrance at bottom when room is clear
@@ -437,6 +485,11 @@ class Player {
         this.lastDirection = { x: 0, y: -1 }; // Default facing up
         this.monsterReduction = 0; // Reduces monster spawns per room
         this.freezeCooldown = 0; // Cooldown for freeze ability
+        this.animationFrame = 0;
+        this.walkCycle = 0;
+        this.isMoving = false;
+        this.weaponSwitchAnimation = 0;
+        this.attackAnimation = 0;
     }
     
     update(keys, canvas) {
@@ -462,6 +515,14 @@ class Player {
             moved = true;
         }
         
+        // Update animation
+        this.isMoving = moved;
+        if (moved) {
+            this.walkCycle += 0.2;
+            if (this.walkCycle >= 4) this.walkCycle = 0;
+        }
+        this.animationFrame++;
+        
         // Occasional footstep sound when moving
         if (moved && Math.random() < 0.1) {
             soundManager.footstep();
@@ -470,6 +531,8 @@ class Player {
         if (this.attackCooldown > 0) this.attackCooldown--;
         if (this.invulnerable > 0) this.invulnerable--;
         if (this.freezeCooldown > 0) this.freezeCooldown--;
+        if (this.weaponSwitchAnimation > 0) this.weaponSwitchAnimation--;
+        if (this.attackAnimation > 0) this.attackAnimation--;
     }
     
     attack(monsters) {
@@ -498,6 +561,7 @@ class Player {
             );
             game.bullets.push(bouncingBullet);
             game.addMessage(`Cast ${this.weapons.staff.name} magic bolt!`);
+            game.createParticles(this.x + this.width/2, this.y + this.height/2, 'magic', 8);
             soundManager.gunShot(); // TODO: Add magic sound
         } else {
             // Sword: short range melee attack
@@ -515,6 +579,7 @@ class Player {
                     const damage = this.weapons.sword.getDamage();
                     monster.takeDamage(damage, 'sword');
                     game.addMessage(`Hit ${monster.type} with ${this.weapons.sword.name} for ${damage} damage!`);
+                    game.createParticles(monster.x + monster.width/2, monster.y + monster.height/2, 'sword', 6);
                     soundManager.hit();
                     hit = true;
                 }
@@ -529,6 +594,7 @@ class Player {
         }
         
         this.attackCooldown = 20;
+        this.attackAnimation = 15; // Attack animation duration
     }
     
     freezeEnemies(monsters) {
@@ -551,17 +617,20 @@ class Player {
         if (this.health < 0) this.health = 0;
         this.invulnerable = 30;
         game.addMessage(`Took ${damage} damage!`);
+        game.createParticles(this.x + this.width/2, this.y + this.height/2, 'blood', 8);
         soundManager.takeDamage();
     }
     
     heal(amount) {
         this.health += amount;
         if (this.health > this.maxHealth) this.health = this.maxHealth;
+        game.createParticles(this.x + this.width/2, this.y + this.height/2, 'heal', 6);
     }
     
     restoreMana(amount) {
         this.mana += amount;
         if (this.mana > this.maxMana) this.mana = this.maxMana;
+        game.createParticles(this.x + this.width/2, this.y + this.height/2, 'mana', 4);
     }
     
     gainExp(amount) {
@@ -597,6 +666,7 @@ class Player {
         this.updateWeaponUI();
         const weapon = this.weapons[this.currentWeapon];
         game.addMessage(`Switched to ${weapon.name}`);
+        this.weaponSwitchAnimation = 20; // Weapon switch animation duration
         soundManager.weaponSwitch();
     }
     
@@ -651,18 +721,32 @@ class Player {
         const weaponOffsetX = 12; // Position weapon further to the right of player
         const weaponOffsetY = 2; // Slightly below center
         
+        // Weapon switch animation - scale effect
+        const switchScale = this.weaponSwitchAnimation > 0 ? 
+            1 + (this.weaponSwitchAnimation / 20) * 0.5 : 1;
+        
+        // Attack animation - slight weapon movement
+        const attackOffset = this.attackAnimation > 0 ? 
+            Math.sin(this.attackAnimation * 0.3) * 2 : 0;
+        
+        const animatedOffsetX = weaponOffsetX + attackOffset;
+        const animatedOffsetY = weaponOffsetY + (attackOffset * 0.5);
+        
+        ctx.save();
+        ctx.scale(switchScale, switchScale);
+        
         if (this.currentWeapon === 'gun') {
-            // Draw pistol
+            // Draw pistol with enhanced effects
             ctx.fillStyle = '#444444'; // Dark gray for gun body
-            ctx.fillRect(centerX + weaponOffsetX, centerY + weaponOffsetY, 6, 3);
+            ctx.fillRect((centerX + animatedOffsetX) / switchScale, (centerY + animatedOffsetY) / switchScale, 6, 3);
             
-            // Gun barrel
-            ctx.fillStyle = '#222222'; // Darker for barrel
-            ctx.fillRect(centerX + weaponOffsetX + 6, centerY + weaponOffsetY + 1, 3, 1);
+            // Gun barrel with muzzle flash effect during attack
+            ctx.fillStyle = this.attackAnimation > 10 ? '#ffff00' : '#222222';
+            ctx.fillRect((centerX + animatedOffsetX + 6) / switchScale, (centerY + animatedOffsetY + 1) / switchScale, 3, 1);
             
             // Gun grip
             ctx.fillStyle = '#8B4513'; // Brown grip
-            ctx.fillRect(centerX + weaponOffsetX + 1, centerY + weaponOffsetY + 3, 2, 3);
+            ctx.fillRect((centerX + animatedOffsetX + 1) / switchScale, (centerY + animatedOffsetY + 3) / switchScale, 2, 3);
         } else if (this.currentWeapon === 'staff' && this.hasWizardStaff) {
             // Draw wizard staff
             ctx.fillStyle = '#8B4513'; // Brown staff handle
@@ -693,35 +777,41 @@ class Player {
             ctx.fillStyle = '#654321'; // Dark brown handle
             ctx.fillRect(centerX + weaponOffsetX, centerY + weaponOffsetY + 4, 1, 3);
             
-            // Sword pommel
-            ctx.fillStyle = '#8B4513'; // Brown pommel
-            ctx.fillRect(centerX + weaponOffsetX, centerY + weaponOffsetY + 7, 1, 1);
+            // Sword pommel with attack glow
+            ctx.fillStyle = this.attackAnimation > 0 ? '#FFD700' : '#8B4513';
+            ctx.fillRect((centerX + animatedOffsetX) / switchScale, (centerY + animatedOffsetY + 7) / switchScale, 1, 1);
         }
+        
+        ctx.restore();
     }
     
     render(ctx) {
         const centerX = this.x + this.width / 2;
         const centerY = this.y + this.height / 2;
         
+        // Add bobbing animation when walking
+        const bobOffset = this.isMoving ? Math.sin(this.walkCycle * Math.PI) * 0.5 : 0;
+        const renderY = this.y + bobOffset;
+        
         // Main body with gradient effect
         const bodyColor = this.invulnerable > 0 ? '#ffff99' : '#ffff00';
         ctx.fillStyle = bodyColor;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+        ctx.fillRect(this.x, renderY, this.width, this.height);
         
         // Add body shading
         ctx.fillStyle = this.invulnerable > 0 ? '#ffff77' : '#ffdd00';
-        ctx.fillRect(this.x + 1, this.y + 1, this.width - 2, 2); // Top highlight
-        ctx.fillRect(this.x + 1, this.y + 1, 2, this.height - 2); // Left highlight
+        ctx.fillRect(this.x + 1, renderY + 1, this.width - 2, 2); // Top highlight
+        ctx.fillRect(this.x + 1, renderY + 1, 2, this.height - 2); // Left highlight
         
         // Body shadow
         ctx.fillStyle = this.invulnerable > 0 ? '#dddd55' : '#ccbb00';
-        ctx.fillRect(this.x + this.width - 2, this.y + 2, 2, this.height - 2); // Right shadow
-        ctx.fillRect(this.x + 2, this.y + this.height - 2, this.width - 2, 2); // Bottom shadow
+        ctx.fillRect(this.x + this.width - 2, renderY + 2, 2, this.height - 2); // Right shadow
+        ctx.fillRect(this.x + 2, renderY + this.height - 2, this.width - 2, 2); // Bottom shadow
         
         // Belt/armor details
         ctx.fillStyle = '#8B4513';
-        ctx.fillRect(this.x + 2, centerY + 1, this.width - 4, 2);
-        ctx.fillRect(centerX - 1, centerY, 2, 4);
+        ctx.fillRect(this.x + 2, renderY + this.height/2 + 1, this.width - 4, 2);
+        ctx.fillRect(centerX - 1, renderY + this.height/2, 2, 4);
         
         this.renderFace(ctx);
         
@@ -773,6 +863,9 @@ class Monster {
         this.expReward = stats.exp;
         this.color = stats.color;
         this.frozen = 0; // Freeze timer
+        this.animationFrame = 0;
+        this.breathingCycle = 0;
+        this.blinkTimer = Math.random() * 120; // Random initial blink timing
     }
     
     getMonsterStats(type, roomLevel) {
@@ -811,6 +904,14 @@ class Monster {
         }
         
         if (this.attackCooldown > 0) this.attackCooldown--;
+        
+        // Update animations
+        this.animationFrame++;
+        this.breathingCycle += 0.1;
+        this.blinkTimer--;
+        if (this.blinkTimer <= 0) {
+            this.blinkTimer = 60 + Math.random() * 180; // Blink every 1-4 seconds
+        }
     }
     
     checkCollision(player) {
@@ -931,26 +1032,42 @@ class Monster {
     }
     
     render(ctx) {
+        // Add breathing animation and freeze effect
+        const breathingOffset = this.frozen > 0 ? 0 : Math.sin(this.breathingCycle) * 0.3;
+        const renderY = this.y + breathingOffset;
+        const freezeAlpha = this.frozen > 0 ? 0.6 : 1.0;
+        
+        ctx.save();
+        ctx.globalAlpha = freezeAlpha;
+        
+        // Frozen effect - blue tint
+        if (this.frozen > 0) {
+            ctx.fillStyle = '#ADD8E6';
+            ctx.fillRect(this.x - 1, renderY - 1, this.width + 2, this.height + 2);
+        }
+        
         // Main body with shading
         ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+        ctx.fillRect(this.x, renderY, this.width, this.height);
         
         // Add highlight and shadow for 3D effect
         const highlightColor = this.getBrighterColor(this.color);
         const shadowColor = this.getDarkerColor(this.color);
         
         ctx.fillStyle = highlightColor;
-        ctx.fillRect(this.x + 1, this.y + 1, this.width - 2, 1); // Top highlight
-        ctx.fillRect(this.x + 1, this.y + 1, 1, this.height - 2); // Left highlight
+        ctx.fillRect(this.x + 1, renderY + 1, this.width - 2, 1); // Top highlight
+        ctx.fillRect(this.x + 1, renderY + 1, 1, this.height - 2); // Left highlight
         
         ctx.fillStyle = shadowColor;
-        ctx.fillRect(this.x + this.width - 1, this.y + 1, 1, this.height - 1); // Right shadow
-        ctx.fillRect(this.x + 1, this.y + this.height - 1, this.width - 1, 1); // Bottom shadow
+        ctx.fillRect(this.x + this.width - 1, renderY + 1, 1, this.height - 1); // Right shadow
+        ctx.fillRect(this.x + 1, renderY + this.height - 1, this.width - 1, 1); // Bottom shadow
         
         // Add type-specific details
-        this.renderTypeDetails(ctx);
+        this.renderTypeDetails(ctx, renderY);
         
-        this.renderFace(ctx);
+        this.renderFace(ctx, renderY);
+        
+        ctx.restore();
         
         // Enhanced health bar
         const healthBarWidth = this.width + 4;
@@ -997,9 +1114,9 @@ class Monster {
         return colors[color] || color;
     }
     
-    renderTypeDetails(ctx) {
+    renderTypeDetails(ctx, renderY = this.y) {
         const centerX = this.x + this.width / 2;
-        const centerY = this.y + this.height / 2;
+        const centerY = renderY + this.height / 2;
         
         switch(this.type) {
             case 'goblin':
@@ -1560,6 +1677,95 @@ class Weapon {
     }
 }
 
+// Particle system for visual effects
+class Particle {
+    constructor(x, y, type = 'default', color = '#ff6b35') {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        this.color = color;
+        this.life = 30;
+        this.maxLife = 30;
+        this.active = true;
+        
+        // Different particle behaviors
+        switch(type) {
+            case 'damage':
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = -Math.random() * 3 - 1;
+                this.size = 3;
+                break;
+            case 'heal':
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = -Math.random() * 2 - 0.5;
+                this.size = 2;
+                this.color = '#4CAF50';
+                break;
+            case 'mana':
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = -Math.random() * 2 - 0.5;
+                this.size = 2;
+                this.color = '#2196F3';
+                break;
+            case 'magic':
+                this.vx = (Math.random() - 0.5) * 6;
+                this.vy = (Math.random() - 0.5) * 6;
+                this.size = 4;
+                this.color = '#9C27B0';
+                this.life = 20;
+                this.maxLife = 20;
+                break;
+            case 'sword':
+                this.vx = (Math.random() - 0.5) * 3;
+                this.vy = -Math.random() * 2;
+                this.size = 2;
+                this.color = '#FFC107';
+                this.life = 15;
+                this.maxLife = 15;
+                break;
+            case 'blood':
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = -Math.random() * 3;
+                this.size = 2;
+                this.color = '#F44336';
+                this.life = 25;
+                this.maxLife = 25;
+                break;
+            default:
+                this.vx = (Math.random() - 0.5) * 3;
+                this.vy = -Math.random() * 2;
+                this.size = 2;
+        }
+    }
+    
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.1; // Gravity
+        this.life--;
+        
+        if (this.life <= 0) {
+            this.active = false;
+        }
+    }
+    
+    render(ctx) {
+        const alpha = this.life / this.maxLife;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size);
+        
+        // Add glow effect for magic particles
+        if (this.type === 'magic') {
+            ctx.globalAlpha = alpha * 0.3;
+            ctx.fillRect(this.x - this.size, this.y - this.size, this.size * 2, this.size * 2);
+        }
+        
+        ctx.restore();
+    }
+}
+
 class Bullet {
     constructor(x, y, dirX, dirY, damage) {
         this.x = x;
@@ -1685,15 +1891,26 @@ class BouncingBullet {
     render(ctx) {
         if (!this.active) return;
         
-        // Purple magic bolt
-        ctx.fillStyle = '#9370DB';
-        ctx.fillRect(this.x - this.width/2, this.y - this.height/2, this.width, this.height);
+        // Enhanced magic bolt with pulsing effect
+        const pulseIntensity = 0.7 + Math.sin(Date.now() * 0.01) * 0.3;
         
-        // Magic glow
-        ctx.fillStyle = 'rgba(147, 112, 219, 0.6)';
+        // Outer magical aura
+        ctx.fillStyle = `rgba(147, 112, 219, ${pulseIntensity * 0.3})`;
+        ctx.fillRect(this.x - this.width/2 - 3, this.y - this.height/2 - 3, this.width + 6, this.height + 6);
+        
+        // Middle glow
+        ctx.fillStyle = `rgba(147, 112, 219, ${pulseIntensity * 0.6})`;
         ctx.fillRect(this.x - this.width/2 - 1, this.y - this.height/2 - 1, this.width + 2, this.height + 2);
         
-        // Magic sparkles
+        // Core magic bolt
+        ctx.fillStyle = `rgba(147, 112, 219, ${pulseIntensity})`;
+        ctx.fillRect(this.x - this.width/2, this.y - this.height/2, this.width, this.height);
+        
+        // Bright center
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.fillRect(this.x - 1, this.y - 1, 2, 2);
+        
+        // Magic sparkles around the bolt
         ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.fillRect(this.x - 1, this.y - 1, 2, 2);
         
@@ -1709,54 +1926,112 @@ class SoundManager {
     constructor() {
         this.audioContext = null;
         this.enabled = true;
+        this.userEnabled = true; // User preference
         this.initAudio();
     }
     
     initAudio() {
         try {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            console.log('Audio context created successfully');
         } catch (e) {
-            console.log('Web Audio API not supported');
+            console.log('Web Audio API not supported:', e);
             this.enabled = false;
         }
     }
     
+    resumeAudio() {
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            this.audioContext.resume().then(() => {
+                console.log('Audio context resumed');
+            }).catch(e => {
+                console.log('Failed to resume audio context:', e);
+            });
+        }
+    }
+    
+    updateAudioStatus() {
+        const statusElement = document.getElementById('audioStatus');
+        if (statusElement) {
+            if (!this.userEnabled) {
+                statusElement.innerHTML = '🔇 Sound disabled (Press M to enable)';
+                statusElement.style.color = '#888';
+            } else if (this.audioContext && this.audioContext.state === 'running') {
+                statusElement.innerHTML = '🔊 Sound enabled';
+                statusElement.style.color = '#4CAF50';
+            } else {
+                statusElement.innerHTML = '🔇 Click anywhere to enable audio';
+                statusElement.style.color = '#ff6b35';
+            }
+        }
+    }
+    
+    toggle() {
+        this.userEnabled = !this.userEnabled;
+        this.updateAudioStatus();
+        if (this.userEnabled && this.audioContext && this.audioContext.state === 'suspended') {
+            this.resumeAudio();
+        }
+        console.log('Sound', this.userEnabled ? 'enabled' : 'disabled');
+    }
+    
     playTone(frequency, duration, type = 'sine', volume = 0.3) {
-        if (!this.enabled || !this.audioContext) return;
+        if (!this.enabled || !this.audioContext || !this.userEnabled) {
+            console.log('Audio not enabled or context not available');
+            return;
+        }
         
-        const oscillator = this.audioContext.createOscillator();
-        const gainNode = this.audioContext.createGain();
+        if (this.audioContext.state === 'suspended') {
+            this.resumeAudio();
+        }
         
-        oscillator.connect(gainNode);
-        gainNode.connect(this.audioContext.destination);
-        
-        oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
-        oscillator.type = type;
-        
-        gainNode.gain.setValueAtTime(volume, this.audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
-        
-        oscillator.start(this.audioContext.currentTime);
-        oscillator.stop(this.audioContext.currentTime + duration);
+        try {
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+            oscillator.type = type;
+            
+            gainNode.gain.setValueAtTime(volume, this.audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+            
+            oscillator.start(this.audioContext.currentTime);
+            oscillator.stop(this.audioContext.currentTime + duration);
+        } catch (e) {
+            console.log('Error playing sound:', e);
+        }
     }
     
     // Quirky sound effects
     swordSwish() {
-        // Whoosh sound - frequency sweep
-        const oscillator = this.audioContext.createOscillator();
-        const gainNode = this.audioContext.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(this.audioContext.destination);
+        if (!this.enabled || !this.audioContext || !this.userEnabled) return;
         
-        oscillator.frequency.setValueAtTime(800, this.audioContext.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(200, this.audioContext.currentTime + 0.15);
-        oscillator.type = 'sawtooth';
+        if (this.audioContext.state === 'suspended') {
+            this.resumeAudio();
+        }
         
-        gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
-        
-        oscillator.start();
-        oscillator.stop(this.audioContext.currentTime + 0.15);
+        try {
+            // Whoosh sound - frequency sweep
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(800, this.audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(200, this.audioContext.currentTime + 0.15);
+            oscillator.type = 'sawtooth';
+            
+            gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
+            
+            oscillator.start();
+            oscillator.stop(this.audioContext.currentTime + 0.15);
+        } catch (e) {
+            console.log('Error playing sword swish:', e);
+        }
     }
     
     gunShot() {
@@ -1886,10 +2161,25 @@ window.addEventListener('load', () => {
     soundManager = new SoundManager();
     game = new Game();
     
-    // Enable audio context on first user interaction
-    document.addEventListener('click', () => {
+    // Set initial audio status
+    soundManager.updateAudioStatus();
+    
+    // Enable audio context on first user interaction (multiple event types)
+    const enableAudio = () => {
         if (soundManager.audioContext && soundManager.audioContext.state === 'suspended') {
-            soundManager.audioContext.resume();
+            soundManager.audioContext.resume().then(() => {
+                console.log('Audio context resumed via user interaction');
+                soundManager.updateAudioStatus();
+                // Test sound to confirm audio is working
+                soundManager.playTone(440, 0.1, 'sine', 0.1);
+            }).catch(e => {
+                console.log('Failed to resume audio:', e);
+            });
         }
-    }, { once: true });
+    };
+    
+    // Listen for multiple types of user interactions
+    ['click', 'keydown', 'touchstart'].forEach(eventType => {
+        document.addEventListener(eventType, enableAudio, { once: true });
+    });
 });
